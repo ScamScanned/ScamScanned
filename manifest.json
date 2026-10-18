@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "ScamScanned Alpha",
+  "description": "A lightweight browser extension that helps identify potential scam websites.",
+  "version": "0.1.0",
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://scamscanned.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.amazon.com/*", "*://*.walmart.com/*"],
+      "js": ["sensor-amazon.js"]
+    },
+    {
+      "matches": ["*://*.ebay.com/*"],
+      "js": ["sensor-ebay.js"]
+    },
+    {
+      "matches": ["*://*.etsy.com/*"],
+      "js": ["sensor-etsy.js"]
+    },
+    {
+      "matches": ["*://*.craigslist.org/*", "*://*.facebook.com/*"],
+      "js": ["sensor-local.js"]
+    }
+  ]
+}
