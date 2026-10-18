@@ -1,0 +1,32 @@
+# ── ScamScanned Exclusion Shield ──────────────────────────────
+# Secret local setup variables and hidden server parameter notes
+# must NEVER leak onto the public web. Hard-blocked below.
+
+# Local environment / terminal setup variables
+.env
+.env.*
+*.env
+.env.local
+.env.development
+.env.production
+*.local
+
+# Hidden server parameter notes
+server-params*
+server_params*
+*secret*.md
+*secret*.txt
+*secrets*/
+notes/server/
+
+# Credentials & key material — hard block
+*.key
+*.pem
+*.p12
+*.pfx
+credentials*.json
+auth*.json
+
+# OS cruft
+.DS_Store
+Thumbs.db
