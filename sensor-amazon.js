@@ -490,14 +490,8 @@
         return reasons;
     }
 
-    // ASIN extraction for consumer-forensic tooling (price-history links).
-    // Amazon product paths embed the 10-char ASIN at /dp/{ASIN} or
-    // /gp/product/{ASIN}.
-    function extractASINFromPath(pathname) {
-        if (!pathname) return null;
-        const m = /\/(?:dp|gp\/product)\/([A-Z0-9]{10})\b/i.exec(pathname);
-        return m ? m[1].toUpperCase() : null;
-    }
+    // extractASINFromPath removed (2026-10-18) — its only consumer was the
+    // retired price-history link.
 
     function checkListingSafety() {
         // RUNTIME PIPELINE MERGING: dual-source extraction replaces the raw
@@ -990,61 +984,18 @@
             'letter-spacing: 0.3px; text-align: center; max-width: 220px;'
         ].join(' ');
 
-        // Price-history link: consumer-forensic tooling exposing the listing's
-        // public price curve (front-running markdowns, sudden price lures and
-        // seller swaps become visible). Independent third-party tool; no data
-        // leaves the user beyond Amazon's own page load of it.
-        // GRACEFUL DEGRADATION (field fix 2026-10-18): when the ASIN cannot be
-        // extracted, the link used to vanish. It now falls back to camel's
-        // keyword search over the listing title, so the tool is always
-        // reachable. Note: for never-tracked mass-generated listings camel
-        // itself reports no record — that absence is signal, not a defect.
-        let priceHistoryLink = null;
-        const asinMatch = safeEvaluate(function () {
-            return extractASINFromPath(
-                window.location && window.location.pathname ? window.location.pathname : ''
-            );
-        });
-        if (asinMatch) {
-            priceHistoryLink = document.createElement('a');
-            priceHistoryLink.href =
-                'https://camelcamelcamel.com/product/' + asinMatch;
-            priceHistoryLink.target = '_blank';
-            priceHistoryLink.rel = 'noopener noreferrer';
-            priceHistoryLink.textContent = 'See independent price history';
-            priceHistoryLink.style.cssText = [
-                'font-size: 10px; color: rgba(255,255,255,0.6);',
-                'letter-spacing: 0.3px; text-decoration: underline;'
-            ].join('');
-            console.log('[ScamScanned] price-history: direct product lookup (' + asinMatch + ')');
-        } else {
-            const titleTokens = safeEvaluate(function () {
-                const base = (document.title || '').split(/[|\-:]/)[0].trim();
-                return base ? encodeURIComponent(base.split(/\s+/).slice(0, 8).join(' ')) : '';
-            });
-            if (titleTokens) {
-                priceHistoryLink = document.createElement('a');
-                priceHistoryLink.href =
-                    'https://camelcamelcamel.com/search?sq=' + titleTokens;
-                priceHistoryLink.target = '_blank';
-                priceHistoryLink.rel = 'noopener noreferrer';
-                priceHistoryLink.textContent = 'See independent price history';
-                priceHistoryLink.style.cssText = [
-                    'font-size: 10px; color: rgba(255,255,255,0.6);',
-                    'letter-spacing: 0.3px; text-decoration: underline;'
-                ].join('');
-                console.log('[ScamScanned] price-history: ASIN miss -> camel title search');
-            }
-        }
+        // Price-history link: REMOVED (user decision, 2026-10-18). Field
+        // evidence showed a coverage inversion — the link was reachable only
+        // inside warning banners, but price trackers index by popularity while
+        // our flags cluster on never-tracked fresh listings, so the tool
+        // dead-ended precisely where it appeared. Verification now rides on
+        // the seller-profile inspector and delivery-window signals instead.
 
         const pivotWrap = document.createElement('div');
         pivotWrap.style.cssText =
             'display: flex; flex-direction: column; align-items: center; gap: 6px;';
         pivotWrap.appendChild(pivotButton);
         pivotWrap.appendChild(pivotSubtext);
-        if (priceHistoryLink) {
-            pivotWrap.appendChild(priceHistoryLink);
-        }
 
         banner.appendChild(icon);
         banner.appendChild(content);
