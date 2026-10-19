@@ -14,8 +14,18 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.amazon.com/*", "*://*.walmart.com/*"],
-      "js": ["sensor-amazon.js"]
+      "matches": ["*://*.amazon.com/*"],
+      "js": ["sensor-amazon.js"],
+      "all_frames": true,
+      "run_at": "document_start",
+      "match_about_blank": true
+    },
+    {
+      "matches": ["*://*.walmart.com/*"],
+      "js": ["sensor-walmart.js"],
+      "all_frames": true,
+      "run_at": "document_start",
+      "match_about_blank": true
     },
     {
       "matches": ["*://*.ebay.com/*"],

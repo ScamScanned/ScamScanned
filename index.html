@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ScamScanned — Browser warnings for scam listings</title>
+<meta name="description" content="Free, open-source browser extension that scans Amazon listings for risky seller patterns before you check out. Walmart, eBay, Etsy, Craigslist and Facebook Marketplace support coming soon. Runs locally. GPLv3.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2310b981'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M20%2013c0%205-3.5%207.5-7.66%208.95a1%201%200%200%201-.67-.01C7.5%2020.5%204%2018%204%2013V6a1%201%200%200%201%201-1c2%200%204.5-1.2%206.24-2.72a1.17%201.17%200%200%201%201.52%200C14.51%203.81%2017%205%2019%205a1%201%200%200%201%201%201z'/%3E%3Cpath%20d='m9%2012%202%202%204-4'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#020617;
+    --surface:#0f172a;
+    --surface-2:#0b1220;
+    --chrome:#131a29;
+    --text:#f8fafc;
+    --text-2:#94a3b8;
+    --text-3:#64748b;
+    --icon:#94a3b8;
+    --green:#10b981;
+    --green-hover:#34d399;
+    --green-ink:#03251b;
+    --red:#ef4444;
+    --border:rgba(255,255,255,0.07);
+    --border-strong:rgba(255,255,255,0.14);
+    --font-stack:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-stack);
+    font-size:16px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  .skip-link{
+    position:absolute;left:-999px;top:0;
+    background:var(--green);color:var(--green-ink);
+    font-weight:600;font-size:14px;
+    padding:10px 16px;border-radius:0 0 6px 0;text-decoration:none;z-index:100;
+  }
+  .skip-link:focus{left:0}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:2px}
+
+  /* ---------- icons ---------- */
+  .icon{width:24px;height:24px;flex:none;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;color:var(--icon)}
+  .icon-mark{width:18px;height:18px;flex:none;fill:currentColor}
+  .icon-sm{width:16px;height:16px}
+
+  /* ---------- header ---------- */
+  .site-header{
+    position:sticky;top:0;z-index:20;
+    background:var(--bg);
+    border-bottom:1px solid var(--border);
+  }
+  .header-inner{display:flex;align-items:center;gap:14px;height:60px}
+  .brand{
+    display:inline-flex;align-items:center;gap:10px;
+    font-weight:700;font-size:16px;letter-spacing:-0.01em;
+    color:var(--text);text-decoration:none;
+  }
+  .brand .icon{color:var(--text);width:21px;height:21px}
+  .version-tag{
+    font-family:var(--font-mono);
+    font-size:11px;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;
+    color:var(--text-2);
+    border:1px solid var(--border-strong);
+    border-radius:5px;padding:4px 8px;white-space:nowrap;
+  }
+  .header-nav{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .nav-link{
+    color:var(--text-2);text-decoration:none;font-size:14px;font-weight:500;
+    padding:8px 10px;transition:color 0.15s ease;
+  }
+  .nav-link:hover{color:var(--text)}
+  .gh-button{
+    display:inline-flex;align-items:center;gap:8px;
+    color:var(--text);text-decoration:none;font-size:13.5px;font-weight:600;
+    border:1px solid var(--border-strong);border-radius:6px;padding:7px 13px;
+    transition:background-color 0.15s ease,border-color 0.15s ease;
+  }
+  .gh-button:hover{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.28)}
+  .gh-button .icon-mark{color:var(--text)}
+  @media (max-width:640px){ .nav-link{display:none} }
+
+  /* ---------- hero ---------- */
+  .hero{padding:72px 0 88px;border-bottom:1px solid var(--border)}
+  .hero-grid{display:grid;grid-template-columns:1.05fr 0.95fr;gap:56px;align-items:center}
+  .hero h1{
+    font-size:clamp(30px,4.5vw,43px);
+    line-height:1.12;font-weight:800;letter-spacing:-0.025em;
+    margin:0 0 18px;max-width:20ch;
+  }
+  .hero .lede{
+    font-size:clamp(16.5px,1.5vw,18px);
+    color:var(--text-2);max-width:54ch;margin:0 0 30px;
+  }
+  .cta-row{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+  .btn-primary{
+    display:inline-flex;align-items:center;gap:10px;
+    background:var(--green);color:var(--green-ink);
+    font-weight:650;font-size:15px;
+    padding:12px 22px;border-radius:7px;text-decoration:none;
+    transition:background-color 0.15s ease;
+  }
+  .btn-primary .icon{color:var(--green-ink);width:18px;height:18px}
+  .btn-primary:hover{background:var(--green-hover)}
+  .btn-ghost{
+    display:inline-flex;align-items:center;gap:10px;
+    color:var(--text);font-weight:600;font-size:15px;
+    padding:11px 20px;border:1px solid var(--border-strong);border-radius:7px;
+    text-decoration:none;
+    transition:border-color 0.15s ease,background-color 0.15s ease;
+  }
+  .btn-ghost:hover{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.04)}
+  .btn-ghost .icon-mark{color:var(--text)}
+  .hero-meta{margin:26px 0 0;font-size:13px;color:var(--text-3)}
+  .hero-meta code{
+    font-family:var(--font-mono);font-size:12px;color:var(--text-2);
+    letter-spacing:0.02em;
+  }
+  .hero-meta code.soon{color:var(--text-3)}
+  .hero-meta .live-chip{
+    display:inline-block;font-family:var(--font-mono);
+    font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;
+    color:var(--green);border:1px solid var(--green);
+    border-radius:5px;padding:3px 8px;margin-right:6px;
+  }
+
+  /* ---------- browser demo ---------- */
+  .demo{margin:0}
+  .browser{
+    border:1px solid rgba(255,255,255,0.09);
+    border-radius:12px;overflow:hidden;
+    background:#0d131f;
+    box-shadow:0 18px 44px -24px rgba(0,0,0,0.7);
+  }
+  .chrome-bar{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 14px;background:var(--chrome);
+    border-bottom:1px solid var(--border);
+  }
+  .dots{display:flex;gap:6px}
+  .dot{width:10px;height:10px;border-radius:50%;background:#2a3447}
+  .urlbox{
+    flex:1;display:flex;align-items:center;gap:8px;min-width:0;
+    background:#0b111d;border:1px solid rgba(255,255,255,0.06);
+    border-radius:6px;padding:5px 11px;
+    font-family:var(--font-mono);font-size:12px;color:#8b98ad;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .urlbox .icon{width:12px;height:12px;color:#8b98ad;stroke-width:2}
+  .banner{background:#1C1C1E;border-top:3px solid var(--red);padding:15px 18px 16px;color:#fff}
+  .banner-head{display:flex;align-items:center;gap:11px;margin-bottom:9px}
+  .tri{
+    width:24px;height:21px;flex:none;
+    background:var(--red);
+    clip-path:polygon(50% 0,100% 100%,0 100%);
+    position:relative;
+  }
+  .tri::after{
+    content:"!";
+    position:absolute;left:50%;top:10px;transform:translateX(-50%);
+    font-family:var(--font-stack);font-size:10px;font-weight:800;line-height:1;color:#fff;
+  }
+  .banner-title{margin:0;font-size:14.5px;font-weight:700;letter-spacing:-0.01em}
+  .banner-brand{
+    margin-left:auto;font-size:10px;font-weight:700;letter-spacing:0.14em;
+    color:rgba(255,255,255,0.45);
+  }
+  @media (max-width:480px){ .banner-brand{display:none} }
+  .banner-reasons{
+    margin:0 0 13px;padding-left:20px;
+    font-size:13px;line-height:1.7;color:rgba(255,255,255,0.82);
+  }
+  .banner-reasons li{margin:2px 0}
+  .banner-btn{
+    display:inline-block;background:#fff;color:#1C1C1E;
+    font-size:12.5px;font-weight:600;
+    padding:6px 13px;border-radius:5px;
+  }
+  .mock-page{padding:16px;background:#0a0f1a;display:grid;gap:14px;opacity:0.45}
+  .mock-product{display:grid;grid-template-columns:92px 1fr;gap:14px;align-items:start}
+  .mock-thumb{aspect-ratio:1;background:rgba(255,255,255,0.05);border-radius:8px}
+  .mock-lines{display:grid;gap:9px;padding-top:6px}
+  .sk{height:10px;border-radius:5px;background:rgba(255,255,255,0.07)}
+  .sk.w-90{width:90%}.sk.w-70{width:70%}.sk.w-45{width:45%}
+  .sk-row{display:flex;gap:8px;align-items:center}
+  .sk-price{width:64px;height:16px;border-radius:4px;background:rgba(255,255,255,0.09)}
+  .sk-strike{width:44px;height:10px;border-radius:4px;background:rgba(255,255,255,0.06)}
+  .demo-caption{margin:14px 0 0;font-size:13px;color:var(--text-3);line-height:1.55}
+
+  /* ---------- sections ---------- */
+  .section{padding:88px 0;border-bottom:1px solid var(--border)}
+  .section-head{margin-bottom:44px;max-width:68ch}
+  .eyebrow{
+    margin:0 0 12px;font-size:12px;font-weight:600;
+    letter-spacing:0.16em;text-transform:uppercase;color:var(--text-3);
+  }
+  .section h2{
+    margin:0 0 12px;font-size:clamp(24px,3vw,31px);
+    font-weight:750;letter-spacing:-0.02em;line-height:1.2;
+  }
+  .section-lede{margin:0;color:var(--text-2);font-size:16.5px;max-width:62ch}
+
+  /* what it detects */
+  .detect-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .detect-card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:28px;
+  }
+  .detect-card .icon{margin-bottom:18px}
+  .detect-card h3{margin:0 0 10px;font-size:17px;font-weight:700;letter-spacing:-0.01em}
+  .detect-card p{margin:0;font-size:14.5px;color:var(--text-2);max-width:58ch}
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+  .chip{
+    font-family:var(--font-mono);font-size:12.5px;color:#c7d2e2;
+    background:var(--surface-2);border:1px solid rgba(255,255,255,0.08);
+    border-radius:6px;padding:5px 10px;white-space:nowrap;
+  }
+
+  /* how it works */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;margin:0;padding:0;list-style:none;counter-reset:step}
+  .step{border-top:1px solid var(--border-strong);padding-top:20px}
+  .step-num{
+    font-family:var(--font-mono);font-size:13px;color:var(--text-3);
+    display:block;margin-bottom:12px;letter-spacing:0.05em;
+  }
+  .step h3{margin:0 0 8px;font-size:16.5px;font-weight:700;letter-spacing:-0.01em}
+  .step p{margin:0;font-size:14.5px;color:var(--text-2)}
+
+  /* open source & privacy */
+  .oss-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .oss-card{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:30px;
+  }
+  .oss-card .icon{margin-bottom:18px}
+  .oss-card h3{margin:0 0 10px;font-size:18px;font-weight:700;letter-spacing:-0.01em}
+  .oss-card p{margin:0 0 8px;font-size:14.5px;color:var(--text-2)}
+  .oss-card .last{margin-bottom:0}
+  .audit-link{
+    display:inline-flex;align-items:center;gap:8px;margin-top:20px;
+    color:var(--text);font-size:14.5px;font-weight:600;text-decoration:none;
+    border-bottom:1px solid var(--border-strong);padding-bottom:2px;
+    transition:border-color 0.15s ease;
+  }
+  .audit-link:hover{border-color:var(--green)}
+  .audit-link .icon{width:15px;height:15px;color:var(--text-2)}
+  .license-chip{
+    display:inline-flex;align-items:center;
+    font-family:var(--font-mono);font-size:12px;letter-spacing:0.05em;
+    color:var(--text-2);border:1px solid var(--border-strong);
+    border-radius:5px;padding:4px 9px;margin-bottom:18px;
+  }
+
+  .section-flush{border-bottom:none;padding-bottom:0}
+
+  /* a-to-z guide */
+  .guide-card{
+    display:flex;gap:24px;align-items:flex-start;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:32px;
+  }
+  .guide-icon-box{
+    width:46px;height:46px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--border-strong);border-radius:9px;
+  }
+  .guide-icon-box .icon{width:22px;height:22px}
+  .guide-body h3{margin:14px 0 10px;font-size:18px;font-weight:700;letter-spacing:-0.01em}
+  .guide-body p{margin:0 0 10px;font-size:14.5px;color:var(--text-2);max-width:70ch}
+  .guide-body .last{margin-bottom:0}
+  .soon-chip{
+    display:inline-block;font-family:var(--font-mono);
+    font-size:11px;font-weight:600;letter-spacing:0.09em;text-transform:uppercase;
+    color:var(--text-2);border:1px solid var(--border-strong);
+    border-radius:5px;padding:4px 9px;
+  }
+
+  /* support-the-mission card (reuses guide-card layout) */
+  .support-link{
+    display:inline-flex;align-items:center;gap:8px;margin-top:6px;
+    color:var(--green);font-size:14.5px;font-weight:600;text-decoration:none;
+    border-bottom:1px solid var(--border-strong);padding-bottom:2px;
+    transition:border-color 0.15s ease,color 0.15s ease;
+  }
+  .support-link:hover{border-color:var(--green);color:var(--green-hover)}
+  .support-link .icon{width:15px;height:15px;color:var(--green)}
+  .support-note{display:block;margin-top:8px;font-size:12px;color:var(--text-3)}
+
+  /* footer */
+  .site-footer{padding:56px 0 72px;font-size:12.5px;color:var(--text-3);line-height:1.75}
+  .footer-top{
+    display:flex;align-items:center;justify-content:space-between;gap:20px;
+    flex-wrap:wrap;padding-bottom:26px;margin-bottom:26px;
+    border-bottom:1px solid var(--border);
+  }
+  .footer-brand{font-size:14px}
+  .footer-brand .icon{width:18px;height:18px}
+  .footer-legal{margin:0 0 14px;max-width:100ch}
+  .footer-legal strong{color:#a9b6c9;letter-spacing:0.02em;font-weight:700}
+  .footer-assoc{margin:0 0 6px}
+  .footer-copy{margin:0;color:#7d8a9f}
+
+  /* responsive */
+  @media (max-width:960px){
+    .hero{padding:56px 0 64px}
+    .hero-grid{grid-template-columns:1fr;gap:48px}
+    .hero h1{max-width:24ch}
+  }
+  @media (max-width:820px){
+    .steps{grid-template-columns:1fr;gap:28px}
+    .oss-grid{grid-template-columns:1fr}
+  }
+  @media (max-width:760px){
+    .section{padding:64px 0}
+    .detect-grid{grid-template-columns:1fr}
+    .section-head{margin-bottom:34px}
+  }
+  @media (max-width:560px){
+    .guide-card{flex-direction:column;gap:18px;padding:26px}
+    .cta-row .btn-primary,.cta-row .btn-ghost{width:100%;justify-content:center}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{transition:none!important;animation:none!important}
+  }
+</style>
+</head>
+<body>
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-shield" viewBox="0 0 24 24">
+    <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+    <path d="m9 12 2 2 4-4"/>
+  </symbol>
+  <symbol id="i-truck" viewBox="0 0 24 24">
+    <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
+    <path d="M15 18H9"/>
+    <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/>
+    <circle cx="17" cy="18" r="2"/>
+    <circle cx="7" cy="18" r="2"/>
+  </symbol>
+  <symbol id="i-user-x" viewBox="0 0 24 24">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="m16 11 2 2 4-4"/>
+  </symbol>
+  <symbol id="i-external" viewBox="0 0 24 24">
+    <path d="M15 3h6v6"/>
+    <path d="M10 14 21 3"/>
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+  </symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24">
+    <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>
+    <circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>
+  </symbol>
+  <symbol id="i-download" viewBox="0 0 24 24">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+    <path d="m7 10 5 5 5-5"/>
+    <path d="M12 15V3"/>
+  </symbol>
+  <symbol id="i-code" viewBox="0 0 24 24">
+    <path d="m16 18 6-6-6-6"/>
+    <path d="m8 6-6 6 6 6"/>
+  </symbol>
+  <symbol id="i-file" viewBox="0 0 24 24">
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>
+    <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+    <path d="M10 9H8"/>
+    <path d="M16 13H8"/>
+    <path d="M16 17H8"/>
+  </symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24">
+    <path d="M7 7h10v10"/>
+    <path d="M7 17 17 7"/>
+  </symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24">
+    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+  </symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24">
+    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+  </symbol>
+  <symbol id="i-github" viewBox="0 0 24 24">
+    <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+  </symbol>
+</svg>
+
+<a class="skip-link" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="#" aria-label="ScamScanned home">
+      <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+      ScamScanned
+    </a>
+    <span class="version-tag">Alpha v0.1.0</span>
+    <nav class="header-nav" aria-label="Primary">
+      <a class="nav-link" href="#detects">What it detects</a>
+      <a class="nav-link" href="#how-it-works">How it works</a>
+      <a class="nav-link" href="#open-source">Source &amp; privacy</a>
+      <a class="gh-button" href="https://github.com/ScamScanned/ScamScanned" target="_blank" rel="noopener">
+        <svg class="icon-mark" aria-hidden="true"><use href="#i-github"/></svg>
+        GitHub
+      </a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero" aria-labelledby="hero-heading">
+    <div class="wrap hero-grid">
+      <div>
+        <h1 id="hero-heading">A browser extension that warns you before you buy from a scam listing.</h1>
+        <p class="lede">
+          ScamScanned checks product pages while you shop and flags the patterns scam
+          storefronts rely on — before your money leaves your account. It runs entirely
+          in your browser, and it&rsquo;s free and open source.
+        </p>
+        <div class="cta-row">
+          <a class="btn-primary" href="https://github.com/ScamScanned/ScamScanned" target="_blank" rel="noopener">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+            Install from GitHub &mdash; Alpha
+          </a>
+          <a class="btn-ghost" href="https://github.com/ScamScanned/ScamScanned" target="_blank" rel="noopener">
+            <svg class="icon-mark" aria-hidden="true"><use href="#i-github"/></svg>
+            View source on GitHub
+          </a>
+        </div>
+        <p class="hero-meta">
+          <span class="live-chip">Live</span> on <code>Amazon</code> &middot; <em>coming next:</em>
+          <code class="soon">Walmart</code> &middot; <code class="soon">eBay</code> &middot;
+          <code class="soon">Etsy</code> &middot; <code class="soon">Craigslist</code> &middot;
+          <code class="soon">Facebook Marketplace</code>
+        </p>
+      </div>
+
+      <figure class="demo">
+        <div class="browser" aria-hidden="true">
+          <div class="chrome-bar">
+            <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <div class="urlbox">
+              <svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>
+              www.amazon.com/dp/B0EXAMPLE0
+            </div>
+          </div>
+          <div class="banner">
+            <div class="banner-head">
+              <span class="tri"></span>
+              <p class="banner-title">Elevated Risk &mdash; Multiple Caution Signals Detected</p>
+              <span class="banner-brand">SCAMSCANNED</span>
+            </div>
+            <ul class="banner-reasons">
+              <li>Extended third-party shipping window</li>
+              <li>Seller name matches high-risk patterns</li>
+              <li>No standard buy box &mdash; checkout routes through unvetted offers</li>
+            </ul>
+            <span class="banner-btn">Search Safe Alternatives</span>
+          </div>
+          <div class="mock-page">
+            <div class="mock-product">
+              <div class="mock-thumb"></div>
+              <div class="mock-lines">
+                <div class="sk w-90"></div>
+                <div class="sk w-70"></div>
+                <div class="sk-row">
+                  <span class="sk-price"></span>
+                  <span class="sk-strike"></span>
+                </div>
+                <div class="sk w-45"></div>
+              </div>
+            </div>
+            <div class="sk"></div>
+          </div>
+        </div>
+        <figcaption class="demo-caption" id="demo-cap">
+          The warning banner as it appears on a flagged listing &mdash; each reason names the
+          exact signal that triggered it.
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ WHAT IT DETECTS ============ -->
+  <section class="section" id="detects" aria-labelledby="detects-heading">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">What it detects</p>
+        <h2 id="detects-heading">The tricks behind scam listings, spelled out.</h2>
+        <p class="section-lede">
+          Scam storefronts reuse the same handful of plays. ScamScanned watches for the
+          concrete ones &mdash; the phrases and page states that show up right before a bad purchase.
+        </p>
+      </div>
+
+      <div class="detect-grid">
+        <article class="detect-card">
+          <svg class="icon" aria-hidden="true"><use href="#i-truck"/></svg>
+          <h3>Shipping windows that outlast refunds</h3>
+          <p>
+            Third-party sellers list delivery dates weeks past the marketplace&rsquo;s refund
+            deadline. By the time the item never arrives, buyer protection has already expired.
+          </p>
+          <div class="chip-row" aria-label="Example phrases flagged on the page">
+            <span class="chip">Delivery in 4&ndash;6 weeks</span>
+            <span class="chip">Ships from overseas</span>
+          </div>
+        </article>
+
+        <article class="detect-card">
+          <svg class="icon" aria-hidden="true"><use href="#i-user-x"/></svg>
+          <h3>Burner seller identities</h3>
+          <p>
+            Throwaway storefronts hide behind machine-generated names &mdash; garbled strings,
+            random ALL-CAPS words, or fresh importer accounts with no history behind them.
+          </p>
+          <div class="chip-row" aria-label="Example seller names flagged on the page">
+            <span class="chip">BEST_DEAL_STORE_2024X</span>
+            <span class="chip">HUIYANG TRADING CO.</span>
+          </div>
+        </article>
+
+        <article class="detect-card">
+          <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg>
+          <h3>Checkouts that leave the platform</h3>
+          <p>
+            The listing has no buy box. The &ldquo;purchase&rdquo; button routes you to an off-site
+            page where marketplace protection, refunds, and dispute tools never apply.
+          </p>
+          <div class="chip-row" aria-label="Example link text flagged on the page">
+            <span class="chip">See details on seller&rsquo;s site</span>
+          </div>
+        </article>
+
+        <article class="detect-card">
+          <svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>
+          <h3>Discounts built to short-circuit you</h3>
+          <p>
+            Implausible markdowns exist to stop you from thinking. An 80&ndash;90%
+            &ldquo;deal&rdquo; on a mainstream product is the hook &mdash; the price is the scam, not the steal.
+          </p>
+          <div class="chip-row" aria-label="Example pricing flagged on the page">
+            <span class="chip">was $499.99, now $89.99</span>
+            <span class="chip">82% off &mdash; today only</span>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="section" id="how-it-works" aria-labelledby="how-heading">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">How it works</p>
+        <h2 id="how-heading">Three steps. Zero configuration.</h2>
+        <p class="section-lede">
+          No accounts, no dashboards, nothing to tune. Install it once and it quietly does its job.
+        </p>
+      </div>
+
+      <ol class="steps">
+        <li class="step">
+          <span class="step-num" aria-hidden="true">01</span>
+          <h3>Runs locally in your browser</h3>
+          <p>
+            The extension lives in your browser and works on the page in front of it.
+            Nothing about your browsing leaves your machine.
+          </p>
+        </li>
+        <li class="step">
+          <span class="step-num" aria-hidden="true">02</span>
+          <h3>Scans each page as you shop</h3>
+          <p>
+            When a product page loads, ScamScanned checks it against its scam heuristics
+            on the spot &mdash; shipping terms, seller identity, checkout routing, pricing.
+          </p>
+        </li>
+        <li class="step">
+          <span class="step-num" aria-hidden="true">03</span>
+          <h3>Shows a warning before checkout</h3>
+          <p>
+            If a listing trips the signals, a banner appears and names each reason.
+            What you do with the warning is entirely your call.
+          </p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============ OPEN SOURCE & PRIVACY ============ -->
+  <section class="section" id="open-source" aria-labelledby="oss-heading">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Open source &amp; privacy</p>
+        <h2 id="oss-heading">Security software you can read.</h2>
+        <p class="section-lede">
+          You shouldn&rsquo;t have to take our word for anything. The code is public, the
+          license is copyleft, and the privacy stance is structural, not a policy page.
+        </p>
+      </div>
+
+      <div class="oss-grid">
+        <article class="oss-card">
+          <svg class="icon" aria-hidden="true"><use href="#i-code"/></svg>
+          <h3>Inspect every line</h3>
+          <p>
+            Every heuristic the extension applies is in the public repository. Read the
+            detection logic, run it yourself, file issues, or fork it. Security you can
+            verify beats security you have to trust.
+          </p>
+          <p class="last">
+            Install instructions for Chrome are in the repository README. Firefox support is on the roadmap.
+          </p>
+          <a class="audit-link" href="https://github.com/ScamScanned/ScamScanned" target="_blank" rel="noopener">
+            Audit the code on GitHub
+            <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
+          </a>
+        </article>
+
+        <article class="oss-card">
+          <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+          <span class="license-chip">GPLv3</span>
+          <h3>Privacy by architecture</h3>
+          <p>
+            To keep data risk at absolute zero, ScamScanned tracks no consumer identities,
+            profiles no search history records, and drops zero tracking ads. Operational
+            infrastructure is funded programmatically via standard marketplace partner
+            distribution fees at zero cost to your family&rsquo;s cart. As an Amazon Associate,
+            ScamScanned earns from qualifying purchases.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ A-TO-Z GUIDE ============ -->
+  <section class="section section-flush" aria-labelledby="guide-heading">
+    <div class="wrap">
+      <div class="guide-card">
+        <div class="guide-icon-box">
+          <svg class="icon" aria-hidden="true"><use href="#i-file"/></svg>
+        </div>
+        <div class="guide-body">
+          <span class="soon-chip">Coming soon</span>
+          <h3 id="guide-heading">Amazon A-to-z Dispute Walkthrough</h3>
+          <p>
+            Scammed before you installed? Our Amazon A-to-z dispute walkthrough is coming &mdash;
+            a step-by-step runbook for disputing the charge, getting past automated support
+            loops, and filing an A-to-z claim that actually gets reviewed.
+          </p>
+          <p class="last">
+            It will be published on this page, free: no email gate, no course, no upsell.
+          </p>
+        </div>
+      </div>
+
+      <!-- ============ SUPPORT THE MISSION (optional, low-pressure) ============ -->
+      <div class="guide-card" style="margin-top:22px" id="support">
+        <div class="guide-icon-box">
+          <svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg>
+        </div>
+        <div class="guide-body">
+          <span class="soon-chip">Always free &mdash; by design</span>
+          <h3 id="support-heading">Keep ScamScanned independent</h3>
+          <p>
+            Nothing here costs you anything: no paywall, no premium tier, no email gate.
+            The extension and every guide are funded by standard marketplace partner
+            commissions &mdash; the same ones in the disclosure above &mdash; and those keep
+            the lights on by default.
+          </p>
+          <p>
+            Reader contributions are purely optional. Support goes toward keeping the
+            platform independent of the storefronts it scans: research time, public
+            record access, and free refund-help guides. One-time, any amount, and no
+            account or membership gets created.
+          </p>
+          <p class="last">
+            <!-- TODO(payments): swap placeholder href with your Ko-fi / PayPal link before publishing. -->
+            <a class="support-link" href="#" data-placeholder="donation-destination" rel="noopener">
+              Optionally support the mission
+              <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
+            </a>
+            <span class="support-note">Takes you to a secure external payment page. Payment details stay with the processor &mdash; none of it reaches us.</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-top">
+      <a class="brand footer-brand" href="#" aria-label="ScamScanned home">
+        <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+        ScamScanned
+      </a>
+      <a class="gh-button" href="https://github.com/ScamScanned/ScamScanned" target="_blank" rel="noopener" aria-label="ScamScanned on GitHub">
+        <svg class="icon-mark" aria-hidden="true"><use href="#i-github"/></svg>
+        GitHub
+      </a>
+    </div>
+    <p class="footer-legal">
+      <strong>LEGAL NOTICE &amp; REGULATORY DISCLAIMER:</strong>
+      ScamScanned operates strictly as an automated heuristic analysis utility. Risk tiering
+      ratings, threat tracking indicators, and hazard badge metrics are computed algorithmically
+      based on real-time public marketplace footprints and historical fulfillment vectors.
+      ScamScanned does not explicitly guarantee, warrant, or verify the absolute physical safety,
+      merchant quality, or corporate authenticity of items transacted on external commercial
+      directories. Users browse and transact entirely at their own discretion.
+    </p>
+    <p class="footer-assoc">As an Amazon Associate, ScamScanned earns from qualifying purchases.</p>
+    <p class="footer-copy">&copy; 2026 ScamScanned. GPLv3.</p>
+  </div>
+</footer>
+
+</body>
+</html>
