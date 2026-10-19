@@ -404,6 +404,7 @@
     </a>
     <span class="version-tag">Alpha v0.1.0</span>
     <nav class="header-nav" aria-label="Primary">
+      <a class="nav-link" href="#install">Install</a>
       <a class="nav-link" href="#detects">What it detects</a>
       <a class="nav-link" href="#how-it-works">How it works</a>
       <a class="nav-link" href="#open-source">Source &amp; privacy</a>
@@ -428,9 +429,9 @@
           in your browser, and it&rsquo;s free and open source.
         </p>
         <div class="cta-row">
-          <a class="btn-primary" href="https://github.com/ScamScanned/ScamScanned" target="_blank" rel="noopener">
+          <a class="btn-primary" href="#install">
             <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
-            Install from GitHub &mdash; Alpha
+            Install the extension
           </a>
           <a class="btn-ghost" href="https://github.com/ScamScanned/ScamScanned" target="_blank" rel="noopener">
             <svg class="icon-mark" aria-hidden="true"><use href="#i-github"/></svg>
@@ -488,6 +489,67 @@
           exact signal that triggered it.
         </figcaption>
       </figure>
+    </div>
+  </section>
+
+  <!-- ============ INSTALL (ALPHA) ============ -->
+  <section class="section" id="install" aria-labelledby="install-heading">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Install &mdash; Alpha</p>
+        <h2 id="install-heading">Four steps. No command line.</h2>
+        <p class="section-lede">
+          During the Alpha the extension installs straight from a download
+          rather than the Chrome Web Store. Works on a standard Chrome or
+          Edge browser on Windows or macOS.
+        </p>
+      </div>
+
+      <div class="oss-grid">
+        <article class="oss-card">
+          <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+          <h3>Running in about a minute</h3>
+          <a class="btn-primary" href="https://scamscanned.com/download/scamscanned-alpha-v0.1.0.zip" style="margin:4px 0 22px">
+            <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+            Download for Chrome &mdash; v0.1.0 (ZIP)
+          </a>
+          <ol>
+            <li>
+              Find <strong>scamscanned-alpha-v0.1.0.zip</strong> in Downloads,
+              right-click it and choose <strong>Extract All&hellip;</strong>
+              <span style="color:var(--text-3)">(macOS: double-click)</span>.
+            </li>
+            <li>Type <code>chrome://extensions</code> into the address bar.</li>
+            <li>Switch on <strong>Developer mode</strong> &mdash; the toggle in the top-right corner.</li>
+            <li>
+              Click <strong>Load unpacked</strong>, pick the extracted folder,
+              then pin the shield with the puzzle-piece icon.
+            </li>
+          </ol>
+          <p class="last">
+            Full walkthrough, updating and troubleshooting:
+            <a class="audit-link" style="margin-top:0" href="https://github.com/ScamScanned/ScamScanned/blob/main/INSTALL.md" target="_blank" rel="noopener">
+              the install guide
+              <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
+            </a>
+          </p>
+        </article>
+
+        <article class="oss-card">
+          <svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg>
+          <h3>Why isn&rsquo;t it in the Chrome Web Store yet?</h3>
+          <p>
+            The Alpha installs by hand while the store review requirements are
+            being finished &mdash; the store listing is the next milestone, and it
+            turns this into a one-click install with automatic updates.
+          </p>
+          <p class="last">
+            Side-loaded extensions occasionally trigger a small Chrome reminder
+            after a restart. That reminder is normal for Alpha installs and
+            disappears once the store listing goes live.
+          </p>
+        </article>
+      </div>
     </div>
   </section>
 
@@ -574,8 +636,10 @@
           <span class="step-num" aria-hidden="true">01</span>
           <h3>Runs locally in your browser</h3>
           <p>
-            The extension lives in your browser and works on the page in front of it.
-            Nothing about your browsing leaves your machine.
+            Flagging is computed entirely on your device. When a listing is
+            flagged, an anonymous diagnostic of that listing &mdash; its address,
+            title, and seller name &mdash; is relayed so the risk signals keep
+            improving.
           </p>
         </li>
         <li class="step">
