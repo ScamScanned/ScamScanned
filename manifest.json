@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ScamScanned Alpha",
-  "description": "A lightweight browser extension that helps identify potential scam websites.",
+  "description": "Warns about risky marketplace listing patterns on Amazon, Walmart, eBay, Etsy and local trade. Runs locally in your browser.",
   "version": "0.1.0",
   "permissions": [
     "activeTab"

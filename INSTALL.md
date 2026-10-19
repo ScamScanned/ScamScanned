@@ -16,8 +16,11 @@ No command line, no account, no configuration.
 6. **Pin it**: click the puzzle-piece icon in the toolbar and pin
    **ScamScanned Alpha** so the shield is always one glance away.
 
-That's it. Nothing is configured, nothing is collected at setup — the shield
-appears on Amazon product pages when a listing trips its risk signals.
+That's it. Nothing is configured, nothing is collected at setup. In this
+build, the shield appears on Amazon and Walmart product pages and on
+eBay/Etsy listing pages when a listing trips its risk signals — and a small
+dismissible safety reminder (general guidance, not an assessment of any
+listing) appears on Craigslist and Facebook Marketplace item pages.
 
 ## Things that are normal during Alpha
 

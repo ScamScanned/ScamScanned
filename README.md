@@ -28,6 +28,8 @@ Full walkthrough with troubleshooting: [INSTALL.md](INSTALL.md).
 - **AI-listing fingerprints** — full-width CJK punctuation, adjacent duplicate tokens, keyword repeats in slugs and titles.
 - **Seller track record** — on Amazon seller profile pages: storefront age under 6 months, positive-rating share at or below 85%.
 - **Price history link** — one-click independent price curve (camelcamelcamel) on flagged Amazon listings.
+- **eBay / Etsy listing basics** — messaging-channel share markers (context, not proof) and delivery windows that stretch two-plus weeks out, on eBay item and Etsy listing pages.
+- **Local-trade reminder** — a dismissible safety reminder (never a risk verdict) on Craigslist and Facebook Marketplace item pages.
 
 ## Privacy
 
@@ -37,10 +39,13 @@ the risk signals can be validated. No accounts, no cookies, no identifiers.
 
 ## Scope
 
-Live on Amazon and Walmart storefronts during the Alpha; further marketplaces
-(eBay, Etsy, Craigslist, Facebook Marketplace) are on the roadmap. The
-adjudicated enforcement-record feature ships disabled until field conditions
-warrant it.
+Amazon carries the deep engine (listing rules, seller-profile inspection,
+price history). Walmart has its own ruleset, ready for field validation.
+eBay and Etsy carry minimal, honest engines (listing pages only). Craigslist
+and Facebook Marketplace item pages get a small dismissible safety reminder —
+general guidance, never a verdict. Coverage matures as field reports come in.
+The adjudicated enforcement-record feature ships disabled until field
+conditions warrant it.
 
 ## License
 
