@@ -3,6 +3,20 @@
   "name": "ScamScanned Alpha",
   "description": "Warns about risky marketplace listing patterns on Amazon, Walmart, eBay, Etsy and local trade. Runs locally in your browser.",
   "version": "0.1.0",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    },
+    "default_title": "ScamScanned Alpha"
+  },
   "permissions": [
     "activeTab"
   ],
