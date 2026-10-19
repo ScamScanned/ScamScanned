@@ -884,7 +884,7 @@
                 tip.textContent = info.detail;
                 tip.style.cssText =
                     'visibility: hidden; opacity: 0; position: absolute;' +
-                    'bottom: calc(100% + 8px); left: 0; width: 300px;' +
+                    'top: calc(100% + 8px); left: 0; width: 300px;' +
                     'background: #2C2C2E; border: 1px solid rgba(255,255,255,0.2);' +
                     'padding: 10px 12px; font-size: 12px; line-height: 1.5;' +
                     'color: rgba(255,255,255,0.94); border-radius: 6px;' +
@@ -994,6 +994,11 @@
         // public price curve (front-running markdowns, sudden price lures and
         // seller swaps become visible). Independent third-party tool; no data
         // leaves the user beyond Amazon's own page load of it.
+        // GRACEFUL DEGRADATION (field fix 2026-10-18): when the ASIN cannot be
+        // extracted, the link used to vanish. It now falls back to camel's
+        // keyword search over the listing title, so the tool is always
+        // reachable. Note: for never-tracked mass-generated listings camel
+        // itself reports no record — that absence is signal, not a defect.
         let priceHistoryLink = null;
         const asinMatch = safeEvaluate(function () {
             return extractASINFromPath(
@@ -1011,6 +1016,25 @@
                 'font-size: 10px; color: rgba(255,255,255,0.6);',
                 'letter-spacing: 0.3px; text-decoration: underline;'
             ].join('');
+            console.log('[ScamScanned] price-history: direct product lookup (' + asinMatch + ')');
+        } else {
+            const titleTokens = safeEvaluate(function () {
+                const base = (document.title || '').split(/[|\-:]/)[0].trim();
+                return base ? encodeURIComponent(base.split(/\s+/).slice(0, 8).join(' ')) : '';
+            });
+            if (titleTokens) {
+                priceHistoryLink = document.createElement('a');
+                priceHistoryLink.href =
+                    'https://camelcamelcamel.com/search?sq=' + titleTokens;
+                priceHistoryLink.target = '_blank';
+                priceHistoryLink.rel = 'noopener noreferrer';
+                priceHistoryLink.textContent = 'See independent price history';
+                priceHistoryLink.style.cssText = [
+                    'font-size: 10px; color: rgba(255,255,255,0.6);',
+                    'letter-spacing: 0.3px; text-decoration: underline;'
+                ].join('');
+                console.log('[ScamScanned] price-history: ASIN miss -> camel title search');
+            }
         }
 
         const pivotWrap = document.createElement('div');

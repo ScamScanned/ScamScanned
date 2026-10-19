@@ -272,6 +272,7 @@
             const info = REASON_LIBRARY[key] ||
                 { label: key, detail: 'Automated heuristic signal.' };
             const li = document.createElement('li');
+            li.style.position = 'relative';
             const label = document.createElement('span');
             label.textContent = info.label;
             label.tabIndex = 0;
@@ -280,10 +281,10 @@
             const tip = document.createElement('div');
             tip.textContent = info.detail;
             tip.style.cssText =
-                'display: none; position: absolute; width: 300px; background: #2C2C2E;' +
+                'display: none; position: absolute; top: calc(100% + 4px); left: 0; width: 300px; background: #2C2C2E;' +
                 'border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;' +
                 'padding: 10px 12px; font-size: 12px; color: rgba(255,255,255,0.9);' +
-                'z-index: 1000001; margin-top: 4px;';
+                'z-index: 1000001;';
             label.addEventListener('mouseenter', function () { tip.style.display = 'block'; });
             label.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
             label.addEventListener('focus', function () { tip.style.display = 'block'; });
