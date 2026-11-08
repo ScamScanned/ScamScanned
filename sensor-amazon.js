@@ -377,6 +377,23 @@
         return name || null;
     }
 
+    // ASIN PROBE (wave 2026-11-07b): narrow-purpose, single consumer — the
+    // banner's "compare other sellers" shortcut. The registry/camel-era
+    // extractASINFromPath was retired with the price-history link (2026-10-18)
+    // and stays retired; this replacement keeps the same conservative URL
+    // shapes (dp / gp/product) and does NOT learn the mobile path variants.
+    function extractAsinFromPath() {
+        try {
+            const rawPath = String((window.location && window.location.pathname) || '');
+            let path = rawPath;
+            try { path = decodeURIComponent(rawPath); } catch (decErr) { /* keep raw */ }
+            const m = /\/(dp|gp\/product|product)\/([A-Z0-9]{10})(?:\/|$|\?)/i.exec(path);
+            return m ? m[2].toUpperCase() : null;
+        } catch (err) {
+            return null;
+        }
+    }
+
     // SLEEPER-SELLER GUARD (Field wave 2026-11-07): the buy box prints the
     // seller's OWN feedback stats — "(1,225 ratings) 87% positive over the
     // last 12 months". The product review widget also says "ratings", but
@@ -566,6 +583,23 @@
         const rawText = extracted.text;
         const pageText = normalizePageText(rawText);
 
+        // SNAPSHOT (wave 2026-11-07b): single-source seller/ASIN facts the
+        // banner prints inline — the platform's OWN printed stats, zero new
+        // claims of our own. Silence on any parse failure; the banner
+        // null-guards every field via evaluation.snapshot.
+        const snapshot = { sellerName: null, feedbackCount: null, feedbackPct: null, asin: null };
+        try {
+            snapshot.sellerName = extractSellerName(rawText);
+        } catch (snapErrName) {
+            snapshot.sellerName = null;
+        }
+        try {
+            const asinProbe = extractAsinFromPath();
+            if (asinProbe) snapshot.asin = asinProbe;
+        } catch (snapErrAsin) {
+            /* probe unavailable — offers link simply does not render */
+        }
+
         // ROUTE A: Logistics Neutralizer Evaluation (Runs First, buy-box scoped)
         if (!pageText) {
             return {
@@ -748,6 +782,8 @@
             );
         }
         if (sellerCluster) {
+            snapshot.feedbackCount = sellerCluster.count;
+            snapshot.feedbackPct = sellerCluster.pct;
             if (sellerCluster.pct <= 85) {
                 reasons.push(SELLER_TRACK_RECORD_REASON);
             }
@@ -791,13 +827,16 @@
             // Blue tier only when the ghost listing is the sole trigger.
             tier: uniqueReasons.length > 0 ? (redTierCount > 0 ? 'red' : 'blue') : null,
             blockCheckout: ghostTriggered,
+            snapshot: snapshot,
             // Alpha diagnostics: what the scanner saw and where it came from.
             debug: {
                 textChars: rawText.length,
                 source: extracted.source,
                 bodyChildren: document.body ? document.body.childNodes.length : -1,
                 head: rawText.replace(/\s+/g, ' ').slice(0, 80),
-                excerpt: buildDebugExcerpt(rawText)
+                excerpt: buildDebugExcerpt(rawText),
+                seller: snapshot ? snapshot.sellerName : null,
+                asinFound: snapshot ? !!snapshot.asin : false
             }
         };
     }
@@ -1056,7 +1095,72 @@
                 'letter-spacing: 0.2px;';
         }
 
+        // BOTTOM LINE (wave 2026-11-07b): one hedged sentence a shopper can
+        // act on without reading anything else — the scan's takeaway. ASCII
+        // strings per house banner convention.
+        const bottomLine = document.createElement('div');
+        bottomLine.id = 'scamscanned-alert-bottomline';
+        bottomLine.style.cssText =
+            'font-size: 13.5px; font-weight: 600; color: rgba(255,255,255,0.9); letter-spacing: 0.1px;';
+        bottomLine.textContent = isEnforcement
+            ? 'Bottom line: a government or court record names this seller. Pick a different offer.'
+            : (isBlueTier
+                ? 'Bottom line: nothing decisive found. The seller is new, so a 10-second record glance is worth it.'
+                : 'Bottom line: this offer stacks caution signals. Verify the seller or choose a different listing.');
+
+        // SELLER SNAPSHOT LINE (wave 2026-11-07b): the seller-legitimacy
+        // answer INSIDE the banner — "Sold by X (1,225 ratings, 87% positive,
+        // past 12 months)" — Amazon's own printed stats, so this REPORTS
+        // platform data rather than judging it. The "view record" link stays
+        // purely navigational: no tag, no telemetry, verification only.
+        // Omitted entirely when nothing parsed (silence default).
+        const snap = (evaluation && evaluation.snapshot) || {};
+        const snapName = snap.sellerName || null;
+        const snapCount = (typeof snap.feedbackCount === 'number') ? snap.feedbackCount : null;
+        const snapPct = (typeof snap.feedbackPct === 'number') ? snap.feedbackPct : null;
+        let sellerProfileUrl = null;
+        try {
+            sellerProfileUrl = getSellerProfileUrl();
+        } catch (probeErr) {
+            sellerProfileUrl = null;
+        }
+        let sellerLine = null;
+        if (snapName || (snapCount !== null && snapPct !== null)) {
+            sellerLine = document.createElement('div');
+            sellerLine.id = 'scamscanned-alert-sellerline';
+            sellerLine.style.cssText =
+                'font-size: 12.5px; color: rgba(255,255,255,0.75); letter-spacing: 0.1px;';
+            const countStr = snapCount !== null ? snapCount.toLocaleString('en-US') : null;
+            if (snapName && countStr !== null) {
+                sellerLine.textContent =
+                    'Sold by ' + snapName + ' (' + countStr + ' ratings, ' +
+                    snapPct + '% positive, past 12 months)';
+            } else if (snapName) {
+                sellerLine.textContent = 'Sold by ' + snapName;
+            } else {
+                sellerLine.textContent =
+                    'Seller stats: ' + countStr + ' ratings, ' +
+                    snapPct + '% positive (past 12 months)';
+            }
+            if (sellerProfileUrl) {
+                const recordLink = document.createElement('a');
+                recordLink.href = sellerProfileUrl;
+                recordLink.target = '_blank';
+                recordLink.rel = 'noopener noreferrer';
+                recordLink.style.cssText = [
+                    'color: rgba(255,255,255,0.75); text-decoration: underline;',
+                    'font-family: ' + FONT_STACK + '; font-size: 12.5px; margin-left: 6px;'
+                ].join(' ');
+                recordLink.textContent = 'view record';
+                sellerLine.appendChild(recordLink);
+            }
+        }
+
         content.appendChild(headline);
+        content.appendChild(bottomLine);
+        if (sellerLine) {
+            content.appendChild(sellerLine);
+        }
         content.appendChild(reasonList);
         content.appendChild(footNote);
         if (citation) {
@@ -1073,15 +1177,43 @@
         const pivotButton = document.createElement('a');
         pivotButton.id = 'scamscanned-action-button';
 
-        const fallbackQuery = (document.title || '')
-            .replace(/[^A-Za-z0-9\s]/g, ' ')
-            .trim()
-            .replace(/\s+/g, ' ')
-            .split(' ')
-            .filter(function (t) { return t.length > 1; })
-            .slice(0, 8)
-            .map(function (t) { return encodeURIComponent(t); })
-            .join('+');
+        // PIVOT QUERY BUILDER (wave 2026-11-07b): turn the title into a
+        // same-product search that returns usable, comparable alternatives —
+        //   (a) strip Amazon's " : <suffix>" title tail (category/merchant),
+        //   (b) drop connective and merchandising noise tokens,
+        //   (c) drop pure-digit tokens ("5.3" decays to "53" and pollutes),
+        //   (d) HARD RULE: drop every token that also appears in the flagged
+        //       seller's own storefront name — the pivot must never route a
+        //       wary buyer back into the seller's own catalog,
+        //   (e) cap at 6 informative tokens (Amazon ranks long k= strings
+        //       poorly).
+        const buildFallbackQuery = function (title, sellerName) {
+            let t = String(title || '').split(' : ')[0];
+            const sellerTokens = {};
+            String(sellerName || '').toLowerCase().split(/\s+/)
+                .forEach(function (tok) {
+                    if (tok.length >= 2) sellerTokens[tok] = true;
+                });
+            const noise = {
+                'with': true, 'and': true, 'for': true, 'the': true, 'a': true,
+                'of': true, 'set': true, 'pack': true, 'bundle': true,
+                'combo': true, 'free': true, 'gift': true, 'new': true
+            };
+            return t.toLowerCase()
+                .replace(/[^a-z0-9\s\-]/g, ' ')
+                .split(/\s+/)
+                .filter(function (tok) {
+                    if (tok.length < 2) return false;
+                    if (noise[tok]) return false;
+                    if (/^\d+$/.test(tok)) return false;
+                    if (sellerTokens[tok]) return false;
+                    return true;
+                })
+                .slice(0, 6)
+                .map(function (tok) { return encodeURIComponent(tok); })
+                .join('+');
+        };
+        const fallbackQuery = buildFallbackQuery(document.title, snap.sellerName);
         pivotButton.href =
             'https://amazon.com/s?k=' +
             (fallbackQuery || 'safe%20alternatives') +
@@ -1123,28 +1255,24 @@
         pivotWrap.appendChild(pivotButton);
         pivotWrap.appendChild(pivotSubtext);
 
-        // SELLER TRACK-RECORD SHORTCUT (Field wave 2026-11-07): navigational
-        // verification — routes to the seller's own profile page, where
-        // SP-1/SP-2 run. No affiliate tag, no telemetry: this link verifies,
-        // it does not monetize. Renders only when a profile anchor exists
-        // (silence default). Direct try/catch: safeEvaluate would coerce.
-        let sellerProfileUrl = null;
-        try {
-            sellerProfileUrl = getSellerProfileUrl();
-        } catch (probeErr) {
-            sellerProfileUrl = null;
-        }
-        if (sellerProfileUrl) {
-            const trackLink = document.createElement('a');
-            trackLink.href = sellerProfileUrl;
-            trackLink.target = '_blank';
-            trackLink.rel = 'noopener noreferrer';
-            trackLink.style.cssText = [
+        // COMPARE OFFERS (wave 2026-11-07b): "similar enough" made exact —
+        // the SAME product, alternate sellers' offers, on a platform-native
+        // page. Built from the URL's own ASIN only (no offer scraping either
+        // direction). Attribution stays on this link because it can end in a
+        // purchase (monetization constraint); it still certifies nothing.
+        if (snap && snap.asin) {
+            const offersLink = document.createElement('a');
+            offersLink.href =
+                'https://www.amazon.com/gp/offer-listing/' + snap.asin +
+                '?tag=' + AFFILIATE_TAG;
+            offersLink.target = '_blank';
+            offersLink.rel = 'noopener noreferrer';
+            offersLink.style.cssText = [
                 'font-size: 11px; color: rgba(255,255,255,0.65);',
                 'text-decoration: underline; font-family: ' + FONT_STACK + ';'
             ].join(' ');
-            trackLink.textContent = 'Check this seller\'s record';
-            pivotWrap.appendChild(trackLink);
+            offersLink.textContent = 'Compare other sellers of this exact item';
+            pivotWrap.appendChild(offersLink);
         }
 
         banner.appendChild(icon);
@@ -1184,6 +1312,19 @@
                 const headlineEl = existing.querySelector('#scamscanned-alert-headline');
                 if (headlineEl) {
                     headlineEl.innerText = ENFORCEMENT_TIER_TITLE;
+                }
+                // Bottom line and the seller snapshot must not contradict
+                // the record tier: heuristics said "verify", the record says
+                // the verdict changed. Swap the take-home line, retire the
+                // seller-stats line.
+                const bottomLineEl = existing.querySelector('#scamscanned-alert-bottomline');
+                if (bottomLineEl) {
+                    bottomLineEl.textContent =
+                        'Bottom line: a government or court record names this seller. Pick a different offer.';
+                }
+                const sellerLineEl = existing.querySelector('#scamscanned-alert-sellerline');
+                if (sellerLineEl) {
+                    sellerLineEl.remove();
                 }
             } else {
                 injectSafetyBanner(evaluation);
