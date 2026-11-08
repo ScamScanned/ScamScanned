@@ -45,6 +45,9 @@
     const ZERO_REVIEW_REASON = 'LISTING_NO_REVIEWS';
 
     const RED_TIER_TITLE = 'Elevated Risk — Multiple Caution Signals Detected';
+    // Single-signal variant (field 2026-11-07): the multi headline may not
+    // lie about its own count when exactly one reason fired.
+    const RED_TIER_TITLE_SINGLE = 'Elevated Risk — Caution Signal on This Listing';
     const BLUE_TIER_TITLE = 'Unclear Risk — Verify the Seller Before Purchasing';
     const ENFORCEMENT_TIER_TITLE = 'DO NOT BUY — Official Enforcement Record on Seller';
 
@@ -754,24 +757,8 @@
             reasons.push(DEFECT_HISTORY_REASON);
         }
 
-        // B-6: Merchant Identity Shield (entropy + ALL-CAPS, raw-cased name)
-        if (safeEvaluate(function () { return hasGarbledMerchantName(rawText); })) {
-            reasons.push(MERCHANT_IDENTITY_REASON);
-        }
-
-        // B-7: Price Urgency Trap (standalone band: 70%+ markdown)
-        if (safeEvaluate(function () { return hasDeceptiveMarkdown(pageText, false); })) {
-            reasons.push(PRICING_ANOMALY_REASON);
-        }
-
-        // SLEEPER-SELLER GUARD (seller cluster: feedback count + positive
-        // share). Bands, SP-parity with the profile page (SP-2 <= 85%):
-        //   pct <= 85            -> SELLER_TRACK_RECORD
-        //   count <= 5           -> FRESH_SELLER_ACCOUNT (tiny samples make
-        //                           the percentage meaningless either way)
-        //   count <= 25 and <=85 -> both.
-        // Direct try/catch (NOT safeEvaluate — that wrapper would coerce the
-        // cluster object to a bare boolean, same pattern as spReasons above).
+        // SELLER CLUSTER (parsed before B-6 so the merchant-name rule can
+        // cross-check against the seller's own record).
         let sellerCluster = null;
         try {
             sellerCluster = getSellerFeedbackCluster(pageText);
@@ -784,6 +771,16 @@
         if (sellerCluster) {
             snapshot.feedbackCount = sellerCluster.count;
             snapshot.feedbackPct = sellerCluster.pct;
+        }
+
+        // SLEEPER-SELLER BANDS, SP-parity with the profile page (SP-2 <= 85%):
+        //   pct <= 85            -> SELLER_TRACK_RECORD
+        //   count <= 5           -> FRESH_SELLER_ACCOUNT (tiny samples make
+        //                           the percentage meaningless either way)
+        //   count <= 25 and <=85 -> both.
+        // (Parse failure stays SILENT — the banner shows nothing it cannot
+        // prove, and the snapshot fields simply don't fill.)
+        if (sellerCluster) {
             if (sellerCluster.pct <= 85) {
                 reasons.push(SELLER_TRACK_RECORD_REASON);
             }
@@ -791,6 +788,32 @@
                 (sellerCluster.count <= 25 && sellerCluster.pct <= 85)) {
                 reasons.push(FRESH_SELLER_REASON);
             }
+        }
+
+        // B-6: Merchant Identity Shield (entropy + ALL-CAPS, raw-cased name).
+        // PRECISION CROSS-CHECK (field 2026-11-07, advent-calendar specimen):
+        // a name-SHAPE inference is the weakest standalone evidence and real
+        // non-English storefront brands legitimately trip it. When the seller
+        // cluster shows a large healthy record (100+ ratings, 90%+ positive),
+        // the page's own seller data CONTRADICTS the burner-shape inference —
+        // the signal is suppressed entirely; silence is the honest verdict.
+        // No/weak record: the shape still fires.
+        const merchantShapeHit = safeEvaluate(function () {
+            return hasGarbledMerchantName(rawText);
+        });
+        const healthySellerRecord = !!(sellerCluster &&
+            sellerCluster.count >= 100 && sellerCluster.pct >= 90);
+        if (merchantShapeHit && healthySellerRecord) {
+            console.log(
+                '[ScamScanned] merchant name shape suppressed:' +
+                ' healthy seller record contradicts burner-shape inference');
+        } else if (merchantShapeHit) {
+            reasons.push(MERCHANT_IDENTITY_REASON);
+        }
+
+        // B-7: Price Urgency Trap (standalone band: 70%+ markdown)
+        if (safeEvaluate(function () { return hasDeceptiveMarkdown(pageText, false); })) {
+            reasons.push(PRICING_ANOMALY_REASON);
         }
 
         // Amazon's OWN seller-age annotation: "New to Amazon" badges and
@@ -1008,8 +1031,12 @@
         const headline = document.createElement('div');
         headline.id = 'scamscanned-alert-headline';
         headline.style.cssText = 'font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        // Count-honest headline (field 2026-11-07: a single merchant-name
+        // hit rendered "Multiple Caution Signals"). One signal = singular.
+        const reasonCount = (evaluation.reasons || []).length;
         headline.innerText = isEnforcement ? ENFORCEMENT_TIER_TITLE :
-            (isBlueTier ? BLUE_TIER_TITLE : RED_TIER_TITLE);
+            (isBlueTier ? BLUE_TIER_TITLE :
+                (reasonCount > 1 ? RED_TIER_TITLE : RED_TIER_TITLE_SINGLE));
 
         // Clean bulleted list of every triggered sub-reason. Each bullet is
         // hover/focus-focusable and reveals an educational tooltip from the
@@ -1106,7 +1133,9 @@
             ? 'Bottom line: a government or court record names this seller. Pick a different offer.'
             : (isBlueTier
                 ? 'Bottom line: nothing decisive found. The seller is new, so a 10-second record glance is worth it.'
-                : 'Bottom line: this offer stacks caution signals. Verify the seller or choose a different listing.');
+                : ((evaluation.reasons || []).length > 1
+                    ? 'Bottom line: this offer stacks caution signals. Verify the seller or choose a different listing.'
+                    : 'Bottom line: one caution signal on this offer. Verify the seller or choose a different listing.'));
 
         // SELLER SNAPSHOT LINE (wave 2026-11-07b): the seller-legitimacy
         // answer INSIDE the banner — "Sold by X (1,225 ratings, 87% positive,
@@ -1189,6 +1218,7 @@
         //       poorly).
         const buildFallbackQuery = function (title, sellerName) {
             let t = String(title || '').split(' : ')[0];
+            t = t.replace(/&(amp|nbsp|lt|gt|quot|#39);/gi, ' ');
             const sellerTokens = {};
             String(sellerName || '').toLowerCase().split(/\s+/)
                 .forEach(function (tok) {
@@ -1197,7 +1227,13 @@
             const noise = {
                 'with': true, 'and': true, 'for': true, 'the': true, 'a': true,
                 'of': true, 'set': true, 'pack': true, 'bundle': true,
-                'combo': true, 'free': true, 'gift': true, 'new': true
+                'combo': true, 'free': true, 'gift': true, 'new': true,
+                // Entity-decay + platform-name junk that mass-generated
+                // titles keyword-stuff into product titles (field 2026-11-07:
+                // "Amazoncom"/"amp"/year tokens reached results verbatim via
+                // the server pivot before this pass existed on either side).
+                'amp': true, 'nbsp': true,
+                'amazon': true, 'amazoncom': true, 'com': true
             };
             return t.toLowerCase()
                 .replace(/[^a-z0-9\s\-]/g, ' ')
