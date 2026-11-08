@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How ScamScanned Decides &mdash; Methodology &amp; Limits | ScamScanned</title>
+<meta name="description" content="The exact rules behind the ScamScanned banner: which printed signals it reads, the four risk bands, the six meter zones, the counterweight column, and the limits we state out loud. Open source &mdash; read the code that does it.">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 800px; margin: 0 auto; padding: 48px 24px 64px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 34px; }
+  header .name { font-weight: 700; font-size: 20px; letter-spacing: .2px; }
+  header .tag { color: #94a3b8; font-size: 13px; margin-left: auto; border: 1px solid #334155; border-radius: 999px; padding: 3px 10px; }
+  h1 { font-size: 32px; line-height: 1.2; margin: 6px 0 10px; }
+  .lede { color: #94a3b8; margin-bottom: 28px; font-size: 16px; }
+  h2 { font-size: 21px; margin: 40px 0 12px; color: #f1f5f9; }
+  h3 { font-size: 16px; margin: 22px 0 8px; color: #f1f5f9; }
+  p, li { color: #cbd5e1; font-size: 15px; }
+  ul, ol { margin: 10px 0 0 22px; }
+  li { margin-top: 8px; }
+  strong { color: #f1f5f9; }
+  code { background: #1e293b; border-radius: 5px; padding: 1px 6px; font-size: 13.5px; color: #7dd3fc; }
+  a { color: #34d399; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .callout {
+    background: rgba(16, 185, 129, .08);
+    border: 1px solid rgba(16, 185, 129, .35);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 18px 0;
+  }
+  .warn {
+    background: rgba(245, 158, 11, .08);
+    border: 1px solid rgba(245, 158, 11, .4);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 18px 0;
+  }
+  .callout p { color: #d1fae5; font-size: 14.5px; }
+  .warn p { color: #fde68a; font-size: 14.5px; }
+  .quickbox {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;
+  }
+  .quickbox div {
+    background: #162032; border: 1px solid #24304b; border-radius: 10px; padding: 12px 14px;
+  }
+  .quickbox strong { color: #f1f5f9; }
+  .quickbox p { font-size: 13.5px; color: #94a3b8; margin-top: 4px; }
+  @media (max-width: 640px) { .quickbox { grid-template-columns: 1fr; } }
+  hr { border: 0; border-top: 1px solid #1e293b; margin: 38px 0 0; }
+  footer { color: #64748b; font-size: 13px; margin-top: 26px; }
+</style>
+</head>
+<body>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does ScamScanned certify that a listing or seller is safe?",
+      "acceptedAnswer": { "@type": "Answer", "text": "No. The extension reports only observations printed on the page, sorted into caution bands. It never asserts that any listing, seller, or review is safe, genuine, bad, abandoned by design, or otherwise labeled. A silent banner does not mean the page was vetted and passed — it means no configured check matched that page." }
+    },
+    {
+      "@type": "Question",
+      "name": "What data does the extension send anywhere?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Nothing while you browse. When a warning banner actually fires, one anonymous diagnostic goes to ScamScanned's own server — the marketplace name, the listing address, the page title, and the seller name printed on that page. No accounts, no cookies, nothing else, and none of it is sold or shared for advertising." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why doesn't the extension analyze product photos or AI-generated images?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Deliberate scope. The extension reads printed text — titles, fulfillment claims, delivery windows, prices, seller records — because text checks stay explainable and verifiable, while image analysis repeatedly flags legitimate products (a real-world listing with an AI marketing image turned out to be a genuine product is our recorded case). The banner instead points buyers at the fastest human check: photos buyers added to reviews." }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the banner sometimes stay silent unless something specific is wrong?",
+      "acceptedAnswer": { "@type": "Answer", "text": "The verdict is graduated. A page earning zero matched checks gets no banner at all — silence is the honest state for pages it cannot criticize. One weak signal lands low-caution (yellow), a strong pattern or two-stack lands elevated (red), and several aligned signals land extreme. Every tier's wording is hedged because the tool reports likelihood-shaped evidence, never certainty." }
+    }
+  ]
+}
+</script>
+<div class="wrap">
+
+<header>
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 2l8 3v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V5l8-3z" fill="#10B981"/>
+    <path d="M8.5 12l2.4 2.4L15.6 9.6" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span class="name">ScamScanned</span>
+  <span class="tag">Methodology</span>
+</header>
+
+<h1>How the verdict gets built</h1>
+<p class="lede">This page documents, in plain language, exactly what the banner is allowed
+to say, what evidence it may use, and the limits we state out loud. The code that does
+all of it is public &mdash; nothing on this page is a promise the source cannot back.</p>
+
+<div class="callout"><p><strong>Rule zero: the banner reports patterns, never verdicts about people.</strong>
+It never uses labels that assert what a listing, seller, or review <em>is</em>. It says what
+printed signals matched and in which band. When evidence contradicts a weaker inference &mdash;
+for instance, a seller record with thousands of positive ratings against an odd-looking
+storefront name &mdash; the weaker signal is dropped. Suppressing a warning is an honest
+decline, not a stamp of approval.</p></div>
+
+<h2>What the extension reads</h2>
+<ul>
+  <li><strong>Printed seller history:</strong> the feedback cluster shown in the buy box
+  ("N ratings, P% positive") and platform badges such as "New seller" / "New to Amazon".</li>
+  <li><strong>Printed logistics:</strong> delivery windows, lead-time phrasing, and
+  fulfillment claims &mdash; including the case where an Amazon-fulfillment claim sits
+  next to a weeks-long delivery window, a pair of printed statements that cannot both be
+  true.</li>
+  <li><strong>Printed trade signals:</strong> the list-price/current price pair,
+  the marketplace's own item return-frequency flags, and the offer's checkout structure.</li>
+  <li><strong>Listing text surfaces:</strong> the title and URL the page itself chose &mdash;
+  mass-generation artifacts like non-native punctuation or keyword-stacking patterns.</li>
+  <li><strong>What it never touches:</strong> your account, other tabs, your browsing
+  history, anything typed, and nothing without a printed basis on the scanned page.</li>
+</ul>
+
+<h2>The four bands</h2>
+<div class="quickbox">
+  <div>
+    <strong>Silent &mdash; no banner</strong>
+    <p>No configured check matched the page. That is the honest state, not a certificate.</p>
+  </div>
+  <div>
+    <strong>Low caution &mdash; yellow</strong>
+    <p>Exactly one soft signal (for example, only a strange storefront name) with nothing
+    stacked behind it. This band is usually fine; the fast check is optional.</p>
+  </div>
+  <div>
+    <strong>Elevated &mdash; red</strong>
+    <p>One strong signal alone, or a stack of weaker ones. Example: a third-party fulfillment
+    window weeks past marketplace norms, whatever the seller record says.</p>
+  </div>
+  <div>
+    <strong>Extreme &mdash; deep red</strong>
+    <p>Several strong signals align, or a strong signal carries multiple corroborators
+    &mdash; for example, a brand-new seller with a weeks-long delivery window and no Amazon
+    handling. The advice here is to pick a different listing.</p>
+  </div>
+</div>
+
+<h2>The six meter zones</h2>
+<p>On yellow, red, and blue banners, the meter at the top lights one zone per <em>family</em> of checks
+&mdash; several individual rules collapse into the same zone. Lit means at least one
+rule in that family fired; it counts, it does not grade.</p>
+<ul>
+  <li><strong>Seller record</strong> &mdash; feedback-share breaches, sparse-history
+  storefronts, listings with zero third-party reviews.</li>
+  <li><strong>Seller name</strong> &mdash; storefront-name shape inferences (the weakest
+  family, and the only one another printed record can suppress).</li>
+  <li><strong>Price</strong> &mdash; deep list-price bands and stacked discount
+  corroborators.</li>
+  <li><strong>Fulfillment &amp; checkout</strong> &mdash; long delivery horizons,
+  missing standard buy box, and fulfillment-claim conflicts.</li>
+  <li><strong>Listing text</strong> &mdash; mass-generation artifacts.</li>
+  <li><strong>Platform return data</strong> &mdash; the marketplace's own
+  frequently-returned flag.</li>
+</ul>
+
+<h2>Why the banner shows both sides</h2>
+<p>Every banner pairs <strong>Watch for</strong> (what matched) with
+<strong>What's on your side</strong> (observations that point the other way: a large
+printed buyer-review count, a standard checkout flow, the absence of a platform defect
+flag, no mass-generation artifacts). Both columns are page facts. On the extreme band
+&mdash; the red deep tier &mdash; the counterweight column retires, because a verdict
+built on several aligned signals shouldn't be softened mid-paragraph.</p>
+
+<h2>Limits we state out loud</h2>
+<div class="warn"><p>
+<strong>We read printed text only.</strong> The extension does not analyze product photos,
+review images, or review text; the banner points you at the fastest human check instead.
+<strong>Heuristics age.</strong> Marketplaces reprint their pages constantly; a printed
+format we parse today can change shape without notice. <strong>Parse failure means
+silence.</strong> If a page half-renders or the text moves, no banner appears &mdash; we
+never emit a warning on uncertain reads.
+<strong>We are not affiliated with</strong> Amazon, Walmart, eBay, Etsy, Craigslist, or
+Facebook. The marketplace names appear only as the pages the extension is registered to
+examine. <strong>Enforcement notices</strong>, when they appear, summarize public records
+published by governments and courts &mdash; never a ScamScanned determination.
+</p></div>
+
+<h2>What data moves, and when</h2>
+<p>While you browse: nothing. When a banner actually fires: one anonymous diagnostic to
+ScamScanned's own server &mdash; the marketplace, the listing address, the page title,
+and the seller name the page itself printed. No accounts, no cookies, no identifiers,
+nothing sold or shared for advertising. The full data policy lives at
+<a href="privacy.html">privacy.html</a>. Everything the tool claims about itself is
+checkable &mdash; <a href="https://github.com/ScamScanned/ScamScanned" rel="noopener">read the source</a>,
+and if any request exists beyond the one diagnostic, that's a bug worth reporting publicly.</p>
+
+<hr>
+<footer>
+  <p><a href="/">ScamScanned home</a> &middot; <a href="privacy.html">Privacy policy</a>
+  &middot; <a href="recover.html">Recovery guide</a> &middot;
+  <a href="https://github.com/ScamScanned/ScamScanned" rel="noopener">Source (GPLv3)</a></p>
+  <p>&copy; 2026 ScamScanned. ScamScanned is not affiliated with any marketplace named above.</p>
+</footer>
+</div>
+</body>
+</html>
