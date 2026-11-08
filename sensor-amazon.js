@@ -25,6 +25,7 @@
         accent: '#DC143C',       // Crimson (red-tier top border)
         blueAccent: '#4A90D9',   // Steel blue (blue-tier top border)
         enforcement: '#F59E0B',  // Amber/gold (enforcement-tier top border)
+        caution: '#FDE047',      // Bright yellow (low-risk caution top border)
         deepCrimson: '#8B0000',  // Button text
         text: '#FFFFFF'
     };
@@ -48,6 +49,12 @@
     // Single-signal variant (field 2026-11-07): the multi headline may not
     // lie about its own count when exactly one reason fired.
     const RED_TIER_TITLE_SINGLE = 'Elevated Risk — Caution Signal on This Listing';
+    // Graduated tiers (user direction, 2026-11-07): risk must land on a
+    // scale, not a switch — silent (no reasons), YELLOW (single soft
+    // signal, probably fine), RED (strong signal or stacking), EXTREME
+    // (pattern alignment).
+    const YELLOW_TIER_TITLE = 'Low Risk — Single Caution Signal on This Listing';
+    const EXTREME_TIER_TITLE = 'Extreme Risk — Multiple Signals Align on This Offer';
     const BLUE_TIER_TITLE = 'Unclear Risk — Verify the Seller Before Purchasing';
     const ENFORCEMENT_TIER_TITLE = 'DO NOT BUY — Official Enforcement Record on Seller';
 
@@ -842,13 +849,55 @@
         }
 
         // Deduplicate (multiple shipping hits collapse to one entry).
+        // GRADUATED TIER DECISION (2026-11-07): tiers weigh EVIDENCE
+        // STRENGTH, not raw count. STRONG class = the rules whose signal
+        // stands on its own (logistics horizons, Amazon-native defect
+        // history, deep standalone markdown, big-record rating-share
+        // breach). All single-shape inferences (fresh account, merchant
+        // name, generation artifacts, corroborator stacks) are soft.
+        //   no reasons                 -> silent (no banner)
+        //   ghost sole                 -> blue (structural ambiguity)
+        //   strong >= 2, or 1 strong
+        //     + 2 corroborators        -> extreme (pattern alignment)
+        //   exactly one reason         -> red if strong, YELLOW if soft
+        //   everything else (2+)       -> red (elevated)
         const uniqueReasons = Array.from(new Set(reasons));
-        const redTierCount = ghostTriggered ? uniqueReasons.length - 1 : uniqueReasons.length;
+        const isStrongReason = function (reasonKey) {
+            if (reasonKey === SHIPPING_REASON || reasonKey === DEFECT_HISTORY_REASON) {
+                return true;
+            }
+            if (reasonKey === SELLER_TRACK_RECORD_REASON) {
+                // pct <= 85 with a LARGE record is the platform's own
+                // verdict forming; small samples stay soft.
+                return !!(sellerCluster && sellerCluster.count >= 100);
+            }
+            if (reasonKey === PRICING_ANOMALY_REASON) {
+                // Standalone deep band (70%+) is strong; the stacked mid
+                // band was a corroborator by design.
+                return safeEvaluate(function () {
+                    return hasDeceptiveMarkdown(pageText, false);
+                });
+            }
+            return false;
+        };
+        const strongCount = uniqueReasons.filter(isStrongReason).length;
+        let tier = null;
+        if (uniqueReasons.length > 0) {
+            if (ghostTriggered && uniqueReasons.length === 1) {
+                tier = 'blue';
+            } else if (strongCount >= 2 ||
+                       (strongCount >= 1 && uniqueReasons.length >= 3)) {
+                tier = 'extreme';
+            } else if (uniqueReasons.length === 1) {
+                tier = strongCount >= 1 ? 'red' : 'yellow';
+            } else {
+                tier = 'red';
+            }
+        }
         return {
             isRisky: uniqueReasons.length > 0,
             reasons: uniqueReasons,
-            // Blue tier only when the ghost listing is the sole trigger.
-            tier: uniqueReasons.length > 0 ? (redTierCount > 0 ? 'red' : 'blue') : null,
+            tier: tier,
             blockCheckout: ghostTriggered,
             snapshot: snapshot,
             // Alpha diagnostics: what the scanner saw and where it came from.
@@ -1002,6 +1051,8 @@
 
         const isBlueTier = evaluation.tier === 'blue';
         const isEnforcement = evaluation.tier === 'enforcement';
+        const isYellowTier = evaluation.tier === 'yellow';
+        const isExtremeTier = evaluation.tier === 'extreme';
 
         const banner = document.createElement('div');
         banner.id = 'scamscanned-alert-shield';
@@ -1013,7 +1064,9 @@
             font-family: ${FONT_STACK};
             border-top: 2px solid ${
                 isEnforcement ? PALETTE.enforcement :
-                (isBlueTier ? PALETTE.blueAccent : PALETTE.accent)
+                (isBlueTier ? PALETTE.blueAccent :
+                    (isYellowTier ? PALETTE.caution :
+                        (isExtremeTier ? PALETTE.deepCrimson : PALETTE.accent)))
             };
             text-align: left; padding: 16px 28px; z-index: 1000000;
             box-shadow: 0 6px 18px rgba(0,0,0,0.45);
@@ -1035,8 +1088,10 @@
         // hit rendered "Multiple Caution Signals"). One signal = singular.
         const reasonCount = (evaluation.reasons || []).length;
         headline.innerText = isEnforcement ? ENFORCEMENT_TIER_TITLE :
-            (isBlueTier ? BLUE_TIER_TITLE :
-                (reasonCount > 1 ? RED_TIER_TITLE : RED_TIER_TITLE_SINGLE));
+            (isYellowTier ? YELLOW_TIER_TITLE :
+                (isExtremeTier ? EXTREME_TIER_TITLE :
+                    (isBlueTier ? BLUE_TIER_TITLE :
+                        (reasonCount > 1 ? RED_TIER_TITLE : RED_TIER_TITLE_SINGLE))));
 
         // Clean bulleted list of every triggered sub-reason. Each bullet is
         // hover/focus-focusable and reveals an educational tooltip from the
@@ -1131,19 +1186,28 @@
             'font-size: 13.5px; font-weight: 600; color: rgba(255,255,255,0.9); letter-spacing: 0.1px;';
         bottomLine.textContent = isEnforcement
             ? 'Bottom line: a government or court record names this seller. Pick a different offer.'
-            : (isBlueTier
-                ? 'Bottom line: nothing decisive found. The seller is new, so a 10-second record glance is worth it.'
-                : ((evaluation.reasons || []).length > 1
-                    ? 'Bottom line: this offer stacks caution signals. Verify the seller or choose a different listing.'
-                    : 'Bottom line: one caution signal on this offer. Verify the seller or choose a different listing.'));
+            : (isYellowTier
+                ? 'Bottom line: one soft signal with nothing stacked — this band is usually fine. The fast check below is optional.'
+                : (isExtremeTier
+                    ? 'Bottom line: multiple strong signals align on this offer. Choose a different listing — the alternatives search is one click away.'
+                    : (isBlueTier
+                        ? 'Bottom line: nothing decisive found. The seller is new, so a 10-second record glance is worth it.'
+                        : ((evaluation.reasons || []).length > 1
+                            ? 'Bottom line: this offer stacks caution signals. Verify the seller or choose a different listing.'
+                            : 'Bottom line: one caution signal on this offer. Verify the seller or choose a different listing.'))));
 
         // VERIFY TIP (user direction, 2026-11-07): the bottom line says
         // "verify" — this tells shoppers WHAT the fast verification is.
         // Observable-language doctrine: describes what the shopper will SEE
         // (photos buyers added, alike-sounding review text) — no assertions
         // about AI authorship or review authenticity (§5 doctrine).
+        // Suppressed on the extreme tier: its verdict is "choose a
+        // different listing" — inviting further evaluation would soften
+        // the firmest tier. Yellow keeps it (its bottom line points to
+        // "the fast check below"); red and blue keep it (both say
+        // "verify").
         let verifyTip = null;
-        if (!isEnforcement) {
+        if (!isEnforcement && !isExtremeTier) {
             verifyTip = document.createElement('div');
             verifyTip.id = 'scamscanned-alert-verifytip';
             verifyTip.style.cssText =
