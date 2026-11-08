@@ -22,7 +22,7 @@ $input = json_decode(file_get_contents('php://input'), true);
 if (!$input || !isset($input['platform_source'])) {
     echo json_encode([
         'server_status' => 'ONLINE',
-        'api_version' => '0.2.2',
+        'api_version' => '0.2.3',
         'message' => 'ScamScanned API is online.'
     ]);
     exit;
@@ -82,7 +82,7 @@ function buildPivotQuery($title, $sellerName) {
     foreach (preg_split('/\s+/', strtolower((string)$sellerName)) as $tok) {
         if ($tok !== '' && strlen($tok) >= 2) { $sellerTokens[$tok] = 1; }
     }
-    $normalized = strtolower(preg_replace('/[^a-z0-9\s\-]/', ' ', $t));
+    $normalized = strtolower(preg_replace('/[^a-z0-9\s\-]/i', ' ', $t));
     $kept = [];
     foreach (preg_split('/\s+/', $normalized) as $tok) {
         if (strlen($tok) < 2) continue;
@@ -133,7 +133,7 @@ if ($sellerName !== '' && is_readable(REGISTRY_PATH)) {
 
 $response = [
     'server_status' => 'ONLINE',
-    'api_version' => '0.2.2',
+    'api_version' => '0.2.3',
     // Top-level duplicate + legacy nested shape: tolerant clients read
     // whichever contract version they shipped against.
     'safe_pivot_url' => $safePivotUrl,
