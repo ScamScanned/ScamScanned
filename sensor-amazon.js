@@ -44,6 +44,7 @@
     const FRESH_SELLER_REASON = 'FRESH_SELLER_ACCOUNT';
     const SELLER_TRACK_RECORD_REASON = 'SELLER_TRACK_RECORD';
     const ZERO_REVIEW_REASON = 'LISTING_NO_REVIEWS';
+    const FULFILLMENT_CONFLICT_REASON = 'FULFILLMENT_CLAIM_CONFLICT';
 
     const RED_TIER_TITLE = 'Elevated Risk — Multiple Caution Signals Detected';
     // Single-signal variant (field 2026-11-07): the multi headline may not
@@ -62,6 +63,10 @@
         EXTENDED_SHIPPING: {
             label: 'Extended third-party shipping window',
             detail: 'Delivery estimates far beyond typical marketplace timelines can outlast the buyer-protection period. If the item never arrives, the refund window may already be closed — the delay itself can be the trap.'
+        },
+        FULFILLMENT_CLAIM_CONFLICT: {
+            label: 'Contradictory fulfillment and delivery claims',
+            detail: 'The listing claims Amazon fulfillment while also showing a weeks-long delivery window. Genuine Prime handling does not take weeks, so the printed claims conflict — that tension is a strong caution signal about this offer.'
         },
         HIDDEN_CHECKOUT: {
             label: 'No standard buy box — checkout routes through unvetted offers',
@@ -430,6 +435,7 @@
         PRICING_ANOMALY: 'price',
         EXTENDED_SHIPPING: 'fulfillment',
         HIDDEN_CHECKOUT: 'fulfillment',
+        FULFILLMENT_CLAIM_CONFLICT: 'fulfillment',
         LISTING_GENERATION: 'text',
         DEFECT_HISTORY: 'defect'
     };
@@ -449,7 +455,9 @@
         const reasons = evaluation.reasons || [];
         const has = function (key) { return reasons.indexOf(key) >= 0; };
         const notes = [];
-        if (evaluation.claimedFba) {
+        if (evaluation.claimedFba && !has('FULFILLMENT_CLAIM_CONFLICT')) {
+            // Conflict surfaces the fulfillment problem itself; repeating
+            // the claim as a counterweight there would soften it.
             notes.push('Fulfillment is stated to be handled by Amazon on this listing.');
         }
         if (!has('HIDDEN_CHECKOUT')) {
@@ -749,72 +757,61 @@
             reasons.push(LISTING_GENERATION_REASON);
         }
 
-        // B-1: Overseas shipping signatures
-        if (!routeAWaivesLogistics &&
-            safeEvaluate(function () {
-            return pageText.includes('ships from overseas') ||
-                   pageText.includes('ships via overseas');
-        })) {
-            reasons.push(SHIPPING_REASON);
-        }
-
-        // B-2: Day-threshold parser — range-aware ("arrives in 30 days",
-        // "arrives in 15-30 days"); the UPPER bound is the risk signal.
-        if (!routeAWaivesLogistics &&
-            safeEvaluate(function () {
-            const dayMatch = pageText.match(/arrives in\s+(\d+)\s*(?:-|–|—|to)?\s*(\d+)?\s*days/);
-            if (!dayMatch) return false;
-            const upperBound = dayMatch[2] ? parseInt(dayMatch[2], 10) : parseInt(dayMatch[1], 10);
-            return upperBound >= MIN_RISK_DAYS;
-        })) {
-            reasons.push(SHIPPING_REASON);
-        }
-
-        // B-2b: Date-range shipping estimates ("FREE delivery Tue, Jan 6 -
-        // Wed, Feb 11") — later bound beyond the day threshold.
-        if (!routeAWaivesLogistics &&
-            safeEvaluate(function () { return hasLongShippingDateRange(pageText); })) {
-            reasons.push(SHIPPING_REASON);
-        }
-
-        // B-2c: Lead-time phrasing ("Usually ships within 2 to 3 weeks",
-        // "ships within 4-6 weeks") — upper bound against the unit threshold.
-        if (!routeAWaivesLogistics &&
-            safeEvaluate(function () {
-            const leadMatch = pageText.match(
-                /(?:ships?|delivery|arrives?)\s+within\s+(\d+)(?:\s*(?:to|-|–)\s*(\d+))?\s+(days?|weeks?)/
-            );
-            if (!leadMatch) return false;
-            const upper = Math.max(
-                parseInt(leadMatch[1], 10),
-                leadMatch[2] ? parseInt(leadMatch[2], 10) : 0
-            );
-            const unit = (leadMatch[3] || '').toLowerCase();
-            if (unit.charAt(0) === 'w') return upper >= MIN_RISK_WEEKS;
-            if (unit.charAt(0) === 'd') return upper >= MIN_RISK_DAYS;
-            return false;
-        })) {
-            reasons.push(SHIPPING_REASON);
-        }
-
-        // B-3: Week-threshold parser — range-aware ("delivery in 4 weeks",
-        // "delivery in 4-6 weeks"); the UPPER bound is the risk signal.
-        if (!routeAWaivesLogistics &&
-            safeEvaluate(function () {
-            const weekMatch = pageText.match(/delivery in\s+(\d+)\s*(?:-|–|—|to)?\s*(\d+)?\s*weeks/);
-            if (!weekMatch) return false;
-            const upperBound = weekMatch[2] ? parseInt(weekMatch[2], 10) : parseInt(weekMatch[1], 10);
-            return upperBound >= MIN_RISK_WEEKS;
-        })) {
-            reasons.push(SHIPPING_REASON);
-        }
-
-        // B-4: Generic week cues
-        if (!routeAWaivesLogistics &&
-            safeEvaluate(function () {
-            return pageText.includes('in weeks') || pageText.includes('in several weeks');
-        })) {
-            reasons.push(SHIPPING_REASON);
+        // B-1..B-4 + B-2b/2c: long-horizon logistics triggers, evaluated
+        // data-driven (wave 2026-11-07i, user calibration: "not FBA and
+        // long shipping is a pretty big risk"). The fulfillment claim does
+        // NOT cleanse these — real Amazon handling does not take weeks —
+        // so a horizon trigger under a claimed-fulfillment page is a
+        // printed CONTRADICTION (A-escalator): stronger evidence than the
+        // horizon alone, never erased.
+        const shippingChecks = [
+            function () {
+                return pageText.includes('ships from overseas') ||
+                       pageText.includes('ships via overseas');
+            },
+            function () {
+                const dayMatch = pageText.match(/arrives in\s+(\d+)\s*(?:-|–|—|to)?\s*(\d+)?\s*days/);
+                if (!dayMatch) return false;
+                const upperBound = dayMatch[2] ? parseInt(dayMatch[2], 10) : parseInt(dayMatch[1], 10);
+                return upperBound >= MIN_RISK_DAYS;
+            },
+            function () { return hasLongShippingDateRange(pageText); },
+            function () {
+                const leadMatch = pageText.match(
+                    /(?:ships?|delivery|arrives?)\s+within\s+(\d+)(?:\s*(?:to|-|–)\s*(\d+))?\s+(days?|weeks?)/
+                );
+                if (!leadMatch) return false;
+                const upper = Math.max(
+                    parseInt(leadMatch[1], 10),
+                    leadMatch[2] ? parseInt(leadMatch[2], 10) : 0
+                );
+                const unit = (leadMatch[3] || '').toLowerCase();
+                if (unit.charAt(0) === 'w') return upper >= MIN_RISK_WEEKS;
+                if (unit.charAt(0) === 'd') return upper >= MIN_RISK_DAYS;
+                return false;
+            },
+            function () {
+                const weekMatch = pageText.match(/delivery in\s+(\d+)\s*(?:-|–|—|to)?\s*(\d+)?\s*weeks/);
+                if (!weekMatch) return false;
+                const upperBound = weekMatch[2] ? parseInt(weekMatch[2], 10) : parseInt(weekMatch[1], 10);
+                return upperBound >= MIN_RISK_WEEKS;
+            },
+            function () {
+                return pageText.includes('in weeks') || pageText.includes('in several weeks');
+            }
+        ];
+        let anyLongHorizonTriggered = false;
+        shippingChecks.forEach(function (chk) {
+            if (safeEvaluate(chk)) {
+                anyLongHorizonTriggered = true;
+            }
+        });
+        if (anyLongHorizonTriggered) {
+            if (routeAWaivesLogistics) {
+                reasons.push(FULFILLMENT_CONFLICT_REASON);
+            } else {
+                reasons.push(SHIPPING_REASON);
+            }
         }
 
         // B-5: Native Defect History (Amazon-native return-frequency marker)
@@ -913,8 +910,11 @@
         // STRENGTH, not raw count. STRONG class = the rules whose signal
         // stands on its own (logistics horizons, Amazon-native defect
         // history, deep standalone markdown, big-record rating-share
-        // breach). All single-shape inferences (fresh account, merchant
-        // name, generation artifacts, corroborator stacks) are soft.
+        // breach) PLUS the fresh-seller identity alarm when no fulfillment
+        // claim mitigates it, PLUS the fulfillment-claim print conflict
+        // (wave 2026-11-07i). All remaining single-shape inferences
+        // (merchant name, generation artifacts, corroborator stacks) are
+        // soft.
         //   no reasons                 -> silent (no banner)
         //   ghost sole                 -> blue (structural ambiguity)
         //   strong >= 2, or 1 strong
@@ -925,6 +925,20 @@
         const isStrongReason = function (reasonKey) {
             if (reasonKey === SHIPPING_REASON || reasonKey === DEFECT_HISTORY_REASON) {
                 return true;
+            }
+            if (reasonKey === FULFILLMENT_CONFLICT_REASON) {
+                // The claim-vs-horizon contradiction is proof-shaped: the
+                // page itself prints two statements that cannot both hold.
+                return true;
+            }
+            if (reasonKey === FRESH_SELLER_REASON) {
+                // USER CALIBRATION (2026-11-07): a brand new seller is the
+                // biggest standalone identity alarm. Without Amazon-side
+                // fulfillment, an unknown counterparty carries full weight
+                // alone (red). With claimed fulfillment, the platform
+                // handling keeps recovery robust, so it stays soft (yellow)
+                // and the counterweight column carries the context.
+                return !routeAWaivesLogistics;
             }
             if (reasonKey === SELLER_TRACK_RECORD_REASON) {
                 // pct <= 85 with a LARGE record is the platform's own
