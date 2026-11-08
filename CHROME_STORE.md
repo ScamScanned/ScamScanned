@@ -1,7 +1,7 @@
 # Chrome Web Store Submission Pack
 
 Status: agent-side preparation complete; account, fee, screenshots, and final submit are user-side.
-Build: `scamscanned-alpha-v0.2.2.zip` (12 entries, 57,983 B, SHA256 `91C11F5C9CEA004DA6BE907716F12E399DF279A1DB1897AA0BEF185A3DB975E4`).
+Build: `scamscanned-alpha-v0.2.2.zip` (12 entries, 60,148 B, SHA256 `43A0BB9AF08C2F305A3A0497D13C082DD2EC7627AD8C249CD804A8939C9750C9`).
 
 - Homepage: https://scamscanned.com/
 - Privacy policy: https://scamscanned.com/privacy.html

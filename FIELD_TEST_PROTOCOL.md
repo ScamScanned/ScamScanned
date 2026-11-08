@@ -50,7 +50,7 @@ In the filtered Console:
 - Right-click any line -> **Save as...** and save the log, **or**
 - Select all filtered lines, copy, and paste them into the report.
 
-Include suppression lines too. A line saying a weak signal was dropped is a successful calibration observation, not a failure.
+Include suppression lines too. A line saying a weak signal was dropped is a successful calibration observation, not a failure. If the banner shows a fulfillment-conflict reason, copy the `shippingTrigger`, `shippingEvidence`, and `logistics` fields exactly — they name the check and the date/phrase that fired.
 
 ### E. Screenshot
 - One screenshot with the banner and enough page context to see the listing.
@@ -88,7 +88,8 @@ A listing that prints an Amazon-fulfillment claim next to a weeks-long delivery 
 
 ### 5. Known specimen
 The recorded mass-generated advent-calendar listing (ASIN `B0H69DP8CB`) or the original sister-incident specimen.
-- Expected: calibrated tier for that pattern. Capture the current result; it is a regression check, not a pass/fail test.
+- Expected after the v0.2.2 shipping-scope fix: **silent or yellow**. The old red came from a fulfillment conflict fed by out-of-scope dates; if it is still red, capture `shippingTrigger` / `shippingEvidence` and the main delivery line verbatim.
+- This is a regression check, not a pass/fail test; a genuine main-offer contradiction should still be red.
 
 ### 6. Platform sweep
 One real product or listing page on each:

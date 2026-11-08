@@ -33,6 +33,7 @@
         enforcement: '#F59E0B',  // Amber/gold (enforcement-tier top border)
         caution: '#FDE047',      // Bright yellow (low-risk caution top border)
         deepCrimson: '#8B0000',  // Button text
+        extreme: '#EF4444',      // Bright red (extreme-tier border, badge, icon)
         text: '#FFFFFF'
     };
     const FONT_STACK = "system-ui, -apple-system, 'Inter', 'Segoe UI', Arial, sans-serif";
@@ -72,7 +73,7 @@
         },
         FULFILLMENT_CLAIM_CONFLICT: {
             label: 'Contradictory fulfillment and delivery claims',
-            detail: 'The listing claims Amazon fulfillment while also showing a weeks-long delivery window. Genuine Prime handling does not take weeks, so the printed claims conflict — that tension is a strong caution signal about this offer.'
+            detail: 'The main offer prints Amazon fulfillment ("Ships from Amazon" / "Fulfilled by Amazon") while its own main delivery estimate is two or more weeks out. Amazon-handled orders normally arrive in days, so the two printed statements cannot both be true. This check reads only the offer\'s logistics block — never recommendation carousels. If the main delivery line shows normal timing, this signal should not appear; report it with the console evidence.'
         },
         HIDDEN_CHECKOUT: {
             label: 'No standard buy box — checkout routes through unvetted offers',
@@ -200,12 +201,15 @@
     // DATE-RANGE SHIPPING PARSER (Rule B-2b): Amazon renders long-haul third-
     // party estimates as date ranges ("FREE delivery Tue, Jan 6 - Wed, Feb 11")
     // rather than "in N days" phrases. Scans keyword windows for month-day
-    // tokens, resolves the LATEST date, applies cross-year correction, and
-    // flags when the later bound breaches the day threshold.
-    function hasLongShippingDateRange(pageText) {
-        if (!pageText) return false;
+    // tokens, resolves the LATEST date, applies year-boundary correction, and
+    // returns the matched evidence when the later bound breaches the day
+    // threshold. The caller scopes this to the MAIN OFFER's logistics block;
+    // recommendation-rail dates must never enter this parser.
+    function findLongShippingDateRange(pageText) {
+        if (!pageText) return null;
         const keywordRe = /(arrives?|arrival|deliver(?:y|ies|ed)?|ships?)/g;
         const now = new Date();
+        const currentMonth = now.getMonth() + 1;
         let km;
         while ((km = keywordRe.exec(pageText)) !== null) {
             const windowText = pageText.slice(km.index + km[0].length, km.index + km[0].length + 90);
@@ -217,16 +221,36 @@
                 if (!month || day < 1 || day > 31) continue;
 
                 let estimate = new Date(now.getFullYear(), month - 1, day);
-                // Cross-year correction: dates more than 2 days in the past
-                // belong to next year (Dec window spanning into Jan).
-                if (estimate.getTime() < now.getTime() - 2 * 86400000) {
-                    estimate.setFullYear(estimate.getFullYear() + 1);
+                let daysOut = Math.round((estimate.getTime() - now.getTime()) / 86400000);
+
+                // A delivery estimate more than six months out is not a
+                // delivery estimate — it is a previous-year date being read
+                // in the current year (e.g., "December 30" seen on January 3
+                // is last month's stale copy, not next December).
+                if (daysOut > 180) {
+                    estimate.setFullYear(estimate.getFullYear() - 1);
+                    daysOut = Math.round((estimate.getTime() - now.getTime()) / 86400000);
                 }
-                const daysOut = Math.round((estimate.getTime() - now.getTime()) / 86400000);
-                if (daysOut >= MIN_RISK_DAYS) return true;
+
+                // YEAR-BOUNDARY CORRECTION ONLY: a December window can print
+                // a January date that belongs to next year. A stale date in
+                // the same or an earlier month is NOT next year's estimate —
+                // treating it as one manufactured a 300+ day horizon from old
+                // page copy (field false-positive class).
+                if (daysOut < -2) {
+                    const isYearWrap =
+                        (currentMonth === 11 || currentMonth === 12) && month <= 2;
+                    if (!isYearWrap) continue;
+                    estimate.setFullYear(estimate.getFullYear() + 1);
+                    daysOut = Math.round((estimate.getTime() - now.getTime()) / 86400000);
+                }
+
+                if (daysOut >= MIN_RISK_DAYS) {
+                    return dm[0] + ' (~' + daysOut + ' days out)';
+                }
             }
         }
-        return false;
+        return null;
     }
 
     // MAIN-OFFER SCOPED NEUTRALIZER (v3): "ships from amazon" / "fulfilled by
@@ -269,6 +293,50 @@
         if (windowText.includes('overseas')) return false; // third-party clause
         return windowText.includes('ships from amazon') ||
                windowText.includes('fulfilled by amazon');
+    }
+
+    // MAIN-OFFER LOGISTICS SCOPE (2026-11-07 field precision fix): delivery
+    // and fulfillment checks must read the offer's own logistics block — not
+    // recommendation rails, hidden templates, or unrelated product cards.
+    // A "FREE delivery Dec 2" line in a related-products carousel is not this
+    // offer's delivery estimate, and treating it as one manufactures a fake
+    // fulfillment contradiction. DOM containers win; the first logistics
+    // cluster is the ordered fallback (same binding as the neutralizer).
+    function getMainOfferLogisticsText(pageText) {
+        const selectors = [
+            '#buybox',
+            '#desktop_buybox',
+            '#deliveryBlockMessage',
+            '#mir-layout-DELIVERY_BLOCK',
+            '#fulfillerInfoFeature_feature_div',
+            '#merchant-info',
+            '#availability'
+        ];
+        const chunks = [];
+        try {
+            selectors.forEach(function (sel) {
+                const nodes = document.querySelectorAll(sel);
+                for (let i = 0; i < nodes.length; i++) {
+                    let chunk = '';
+                    try { chunk = nodes[i].innerText || ''; } catch (e1) { chunk = ''; }
+                    if (!chunk) {
+                        try { chunk = nodes[i].textContent || ''; } catch (e2) { chunk = ''; }
+                    }
+                    chunk = normalizePageText(chunk);
+                    if (chunk) chunks.push(chunk);
+                }
+            });
+        } catch (err) {
+            /* DOM probe failed — text fallback below */
+        }
+        const scope = chunks.join(' ').replace(/\s+/g, ' ').trim();
+        if (scope.length >= 20) return scope;
+
+        // Ordered fallback: the main offer's seller/logistics rows always
+        // precede recommendation carousels in page order.
+        const anchor = /(sold by|ships from|delivered by|delivery|arrives?)/.exec(pageText || '');
+        if (!anchor) return pageText || '';
+        return pageText.slice(Math.max(0, anchor.index - 100), anchor.index + 600);
     }
 
     // Merchant Identity Shield (Rule B-6, refined): parses the seller name
@@ -786,54 +854,95 @@
         }
 
         // B-1..B-4 + B-2b/2c: long-horizon logistics triggers, evaluated
-        // data-driven (wave 2026-11-07i, user calibration: "not FBA and
-        // long shipping is a pretty big risk"). The fulfillment claim does
-        // NOT cleanse these — real Amazon handling does not take weeks —
-        // so a horizon trigger under a claimed-fulfillment page is a
-        // printed CONTRADICTION (A-escalator): stronger evidence than the
-        // horizon alone, never erased.
+        // against the MAIN OFFER's logistics block only (2026-11-07 precision
+        // fix: recommendation-rail dates no longer feed this matrix). The
+        // fulfillment claim does NOT cleanse these — real Amazon handling does
+        // not take weeks — so a horizon trigger under a claimed-fulfillment
+        // page is a printed CONTRADICTION (A-escalator): stronger evidence
+        // than the horizon alone, never erased.
+        const logisticsText = getMainOfferLogisticsText(pageText);
         const shippingChecks = [
-            function () {
-                return pageText.includes('ships from overseas') ||
-                       pageText.includes('ships via overseas');
+            {
+                id: 'overseas',
+                run: function () {
+                    if (logisticsText.includes('ships from overseas')) return 'ships from overseas';
+                    if (logisticsText.includes('ships via overseas')) return 'ships via overseas';
+                    return null;
+                }
             },
-            function () {
-                const dayMatch = pageText.match(/arrives in\s+(\d+)\s*(?:-|–|—|to)?\s*(\d+)?\s*days/);
-                if (!dayMatch) return false;
-                const upperBound = dayMatch[2] ? parseInt(dayMatch[2], 10) : parseInt(dayMatch[1], 10);
-                return upperBound >= MIN_RISK_DAYS;
+            {
+                id: 'arrives-in-days',
+                run: function () {
+                    const dayMatch = logisticsText.match(/arrives in\s+(\d+)\s*(?:-|–|—|to)?\s*(\d+)?\s*days/);
+                    if (!dayMatch) return null;
+                    const upperBound = dayMatch[2] ? parseInt(dayMatch[2], 10) : parseInt(dayMatch[1], 10);
+                    return upperBound >= MIN_RISK_DAYS
+                        ? dayMatch[0] + ' (upper bound ' + upperBound + ' days)'
+                        : null;
+                }
             },
-            function () { return hasLongShippingDateRange(pageText); },
-            function () {
-                const leadMatch = pageText.match(
-                    /(?:ships?|delivery|arrives?)\s+within\s+(\d+)(?:\s*(?:to|-|–)\s*(\d+))?\s+(days?|weeks?)/
-                );
-                if (!leadMatch) return false;
-                const upper = Math.max(
-                    parseInt(leadMatch[1], 10),
-                    leadMatch[2] ? parseInt(leadMatch[2], 10) : 0
-                );
-                const unit = (leadMatch[3] || '').toLowerCase();
-                if (unit.charAt(0) === 'w') return upper >= MIN_RISK_WEEKS;
-                if (unit.charAt(0) === 'd') return upper >= MIN_RISK_DAYS;
-                return false;
+            {
+                id: 'date-range',
+                run: function () {
+                    return findLongShippingDateRange(logisticsText);
+                }
             },
-            function () {
-                const weekMatch = pageText.match(/delivery in\s+(\d+)\s*(?:-|–|—|to)?\s*(\d+)?\s*weeks/);
-                if (!weekMatch) return false;
-                const upperBound = weekMatch[2] ? parseInt(weekMatch[2], 10) : parseInt(weekMatch[1], 10);
-                return upperBound >= MIN_RISK_WEEKS;
+            {
+                id: 'within-days-weeks',
+                run: function () {
+                    const leadMatch = logisticsText.match(
+                        /(?:ships?|delivery|arrives?)\s+within\s+(\d+)(?:\s*(?:to|-|–)\s*(\d+))?\s+(days?|weeks?)/
+                    );
+                    if (!leadMatch) return null;
+                    const upper = Math.max(
+                        parseInt(leadMatch[1], 10),
+                        leadMatch[2] ? parseInt(leadMatch[2], 10) : 0
+                    );
+                    const unit = (leadMatch[3] || '').toLowerCase();
+                    const risky = unit.charAt(0) === 'w'
+                        ? upper >= MIN_RISK_WEEKS
+                        : (unit.charAt(0) === 'd' ? upper >= MIN_RISK_DAYS : false);
+                    return risky
+                        ? leadMatch[0] + ' (upper bound ' + upper + ' ' + unit + ')'
+                        : null;
+                }
             },
-            function () {
-                return pageText.includes('in weeks') || pageText.includes('in several weeks');
+            {
+                id: 'delivery-in-weeks',
+                run: function () {
+                    const weekMatch = logisticsText.match(/delivery in\s+(\d+)\s*(?:-|–|—|to)?\s*(\d+)?\s*weeks/);
+                    if (!weekMatch) return null;
+                    const upperBound = weekMatch[2] ? parseInt(weekMatch[2], 10) : parseInt(weekMatch[1], 10);
+                    return upperBound >= MIN_RISK_WEEKS
+                        ? weekMatch[0] + ' (upper bound ' + upperBound + ' weeks)'
+                        : null;
+                }
+            },
+            {
+                id: 'in-weeks',
+                run: function () {
+                    if (logisticsText.includes('in several weeks')) return 'in several weeks';
+                    if (logisticsText.includes('in weeks')) return 'in weeks';
+                    return null;
+                }
             }
         ];
         let anyLongHorizonTriggered = false;
-        shippingChecks.forEach(function (chk) {
-            if (safeEvaluate(chk)) {
-                anyLongHorizonTriggered = true;
+        let shippingTrigger = null;
+        let shippingEvidence = null;
+        for (let sci = 0; sci < shippingChecks.length; sci++) {
+            try {
+                const evidence = shippingChecks[sci].run();
+                if (evidence) {
+                    anyLongHorizonTriggered = true;
+                    shippingTrigger = shippingChecks[sci].id;
+                    shippingEvidence = evidence;
+                    break;
+                }
+            } catch (chkErr) {
+                /* one check failing must never abort the rest */
             }
-        });
+        }
         if (anyLongHorizonTriggered) {
             if (routeAWaivesLogistics) {
                 reasons.push(FULFILLMENT_CONFLICT_REASON);
@@ -1031,6 +1140,10 @@
                 bodyChildren: document.body ? document.body.childNodes.length : -1,
                 head: rawText.replace(/\s+/g, ' ').slice(0, 80),
                 excerpt: buildDebugExcerpt(rawText),
+                logisticsChars: logisticsText.length,
+                logisticsExcerpt: logisticsText.slice(0, 220),
+                shippingTrigger: shippingTrigger,
+                shippingEvidence: shippingEvidence,
                 seller: snapshot ? snapshot.sellerName : null,
                 asinFound: snapshot ? !!snapshot.asin : false
             }
@@ -1138,28 +1251,32 @@
         (document.head || document.documentElement).appendChild(style);
     }
 
-    function buildAlertIcon() {
+    function buildAlertIcon(accentColor, emphasize) {
         // Pure CSS geometric warning triangle (no emoji, no image assets).
+        // Extreme tier gets a larger bright-red triangle so visual weight
+        // increases with severity instead of collapsing to a dark maroon.
         const wrap = document.createElement('div');
         wrap.style.cssText =
-            'position: relative; width: 30px; height: 26px; flex-shrink: 0; margin-top: 2px;';
+            'position: relative; width: ' + (emphasize ? '34px' : '30px') + ';' +
+            ' height: ' + (emphasize ? '30px' : '26px') + '; flex-shrink: 0; margin-top: 2px;';
 
         const triangle = document.createElement('div');
         triangle.style.cssText = [
             'position: absolute; top: 0; left: 1px;',
             'width: 0; height: 0;',
-            'border-left: 14px solid transparent;',
-            'border-right: 14px solid transparent;',
-            `border-bottom: 24px solid ${PALETTE.text};`
+            'border-left: ' + (emphasize ? '16px' : '14px') + ' solid transparent;',
+            'border-right: ' + (emphasize ? '16px' : '14px') + ' solid transparent;',
+            'border-bottom: ' + (emphasize ? '27px' : '24px') + ' solid ' +
+                (emphasize ? accentColor : PALETTE.text) + ';'
         ].join(' ');
 
         const mark = document.createElement('div');
         mark.textContent = '!';
         mark.style.cssText = [
-            'position: absolute; top: 8px; left: 50%;',
+            'position: absolute; top: ' + (emphasize ? '9px' : '8px') + '; left: 50%;',
             'transform: translateX(-50%);',
             `color: ${PALETTE.surface};`,
-            'font-weight: 800; font-size: 12px; line-height: 1;'
+            'font-weight: 800; font-size: ' + (emphasize ? '13px' : '12px') + '; line-height: 1;'
         ].join(' ');
 
         wrap.appendChild(triangle);
@@ -1181,7 +1298,19 @@
         const tierColor = isEnforcement ? PALETTE.enforcement :
             (isBlueTier ? PALETTE.blueAccent :
                 (isYellowTier ? PALETTE.caution :
-                    (isExtremeTier ? PALETTE.deepCrimson : PALETTE.accent)));
+                    (isExtremeTier ? PALETTE.extreme : PALETTE.accent)));
+
+        // Visual hierarchy must track severity: extreme gets a brighter red,
+        // a thicker top border, a dark-red gradient, and a red glow; elevated
+        // keeps the standard crimson hairline. A darker maroon read as LESS
+        // alarming than elevated in the field (2026-11-07).
+        const bannerBackground = isExtremeTier
+            ? 'linear-gradient(180deg, #2A0B0B 0%, #1C1C1E 72%)'
+            : PALETTE.surface;
+        const bannerBorderWidth = isExtremeTier ? 3 : 2;
+        const bannerShadow = isExtremeTier
+            ? '0 0 0 1px rgba(239,68,68,0.32) inset, 0 10px 30px rgba(239,68,68,0.26)'
+            : '0 6px 18px rgba(0,0,0,0.45)';
 
         const banner = document.createElement('div');
         banner.id = 'scamscanned-alert-shield';
@@ -1189,25 +1318,51 @@
         banner.setAttribute('data-tier', evaluation.tier);
         banner.style.cssText = `
             position: fixed; top: 0; left: 0; width: 100%;
-            background-color: ${PALETTE.surface}; color: ${PALETTE.text};
+            background: ${bannerBackground}; color: ${PALETTE.text};
             font-family: ${FONT_STACK};
-            border-top: 2px solid ${tierColor};
+            border-top: ${bannerBorderWidth}px solid ${tierColor};
             text-align: left; padding: 16px 28px; z-index: 1000000;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+            box-shadow: ${bannerShadow};
             display: flex; flex-wrap: wrap; align-items: center;
             justify-content: center; gap: 20px; box-sizing: border-box;
         `;
 
-        const icon = buildAlertIcon();
+        const icon = buildAlertIcon(tierColor, isExtremeTier);
 
         const content = document.createElement('div');
         content.style.cssText =
             'display: flex; flex-direction: column; align-items: flex-start; gap: 6px; max-width: 720px;';
 
-        // Main hazard category title — 18px semibold, tier-aware.
+        // Severity badge: a solid bright-red EXTREME chip outranks the
+        // outline ELEVATED chip at a glance. Enforcement uses the same solid
+        // treatment (its action is terminal).
+        const severityLabel = isEnforcement ? 'DO NOT BUY' :
+            (isExtremeTier ? 'EXTREME' :
+                (isYellowTier ? 'LOW CAUTION' :
+                    (isBlueTier ? 'VERIFY' : 'ELEVATED')));
+        const solidBadge = isEnforcement || isExtremeTier;
+        const severityBadge = document.createElement('span');
+        severityBadge.textContent = severityLabel;
+        severityBadge.style.cssText = [
+            'display: inline-block',
+            'font-size: 10px',
+            'font-weight: 800',
+            'letter-spacing: 0.09em',
+            'line-height: 1.7',
+            'padding: 1px 7px',
+            'border-radius: 4px',
+            'white-space: nowrap',
+            'background: ' + (solidBadge ? tierColor : 'transparent'),
+            'color: ' + (solidBadge ? PALETTE.surface : tierColor),
+            'border: 1px solid ' + tierColor
+        ].join(';') + ';';
+
+        // Main hazard category title — tier-aware, with the badge on one row.
         const headline = document.createElement('div');
         headline.id = 'scamscanned-alert-headline';
-        headline.style.cssText = 'font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        headline.style.cssText =
+            'font-size: ' + (isExtremeTier ? '19px' : '18px') + ';' +
+            ' font-weight: ' + (isExtremeTier ? '700' : '600') + '; letter-spacing: 0.2px;';
         // Count-honest headline (field 2026-11-07: a single merchant-name
         // hit rendered "Multiple Caution Signals"). One signal = singular.
         const reasonCount = (evaluation.reasons || []).length;
@@ -1216,6 +1371,12 @@
                 (isExtremeTier ? EXTREME_TIER_TITLE :
                     (isBlueTier ? BLUE_TIER_TITLE :
                         (reasonCount > 1 ? RED_TIER_TITLE : RED_TIER_TITLE_SINGLE))));
+
+        const headlineRow = document.createElement('div');
+        headlineRow.style.cssText =
+            'display: flex; align-items: center; flex-wrap: wrap; gap: 8px;';
+        headlineRow.appendChild(severityBadge);
+        headlineRow.appendChild(headline);
 
         // Clean bulleted list of every triggered sub-reason. Each bullet is
         // hover/focus-focusable and reveals an educational tooltip from the
@@ -1466,7 +1627,7 @@
             }
         }
 
-        content.appendChild(headline);
+        content.appendChild(headlineRow);
         content.appendChild(bottomLine);
         if (verifyTip) {
             content.appendChild(verifyTip);
@@ -1744,7 +1905,11 @@
                 ' textChars=' + (d.textChars || 0) +
                 ' bodyChildren=' + (typeof d.bodyChildren === 'number' ? d.bodyChildren : '?') +
                 ' head="' + (d.head || '') + '"' +
-                ' excerpt="' + (d.excerpt || '') + '"'
+                ' excerpt="' + (d.excerpt || '') + '"' +
+                ' logisticsChars=' + (d.logisticsChars || 0) +
+                ' shipping=' + (d.shippingTrigger || '-') +
+                ' shippingEvidence="' + (d.shippingEvidence || '') + '"' +
+                ' logistics="' + (d.logisticsExcerpt || '') + '"'
             );
         } catch (err) {
             /* logging must never break the sensor */

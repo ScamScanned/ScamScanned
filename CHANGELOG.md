@@ -6,7 +6,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.2.2] — 2026-11-07
 
 ### Changed
-- Store-readiness: removed the unused `activeTab` permission — the extension now requests no API permissions at all — and added a `homepage_url` pointing at scamscanned.com. No scanning or banner behavior changed.
+- Store-readiness: removed the unused `activeTab` permission — the extension now requests no API permissions at all — and added a `homepage_url` pointing at scamscanned.com.
+- Shipping precision: extended-delivery and fulfillment-conflict checks now read only the main offer's logistics block, never recommendation carousels or stale hidden text. A date only rolls into next year at a true December-to-January boundary, so an old same-month date cannot become a fabricated 300-day delivery window.
+- Extreme-tier visual weight: the extreme banner now uses a bright red border, dark-red gradient, red glow, larger warning icon, and a solid EXTREME badge. Elevated keeps the standard crimson outline, so extreme now reads as more severe rather than less.
+- Diagnostics: the console scan summary now prints `shippingTrigger`, the matched `shippingEvidence` (for example `december 2 (~25 days out)`), and the scoped logistics excerpt, so a field report can pinpoint a shipping finding without guessing.
 
 ## [0.2.1] — 2026-11-07
 
