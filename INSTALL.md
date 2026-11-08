@@ -43,7 +43,8 @@ Go to `chrome://extensions`, find the ScamScanned card, click **Remove**.
 
 A store listing is the next milestone: it turns this into a one-click install
 with automatic updates. It requires a Google review pass — this Alpha is
-being finalized first. Both install paths run the same public source code.
+being finalized first. The manual install runs the same public source code
+the store version will.
 
 ## Troubleshooting
 
