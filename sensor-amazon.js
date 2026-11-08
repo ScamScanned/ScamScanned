@@ -404,6 +404,66 @@
         }
     }
 
+    // SIGNAL METER + COUNTERWEIGHTS (user direction, 2026-11-07): the
+    // banner should convey DEGREE and BALANCE without inventing a
+    // probability it cannot back. The meter is a literal 6-zone count —
+    // zones are real detectable signal families; a zone lights when any
+    // member rule fired. The counterweight list is observables-only:
+    // page-printed fulfiller claims and the ABSENCE of printed
+    // defect/generation/ghost findings on a structural PDP scan. It never
+    // asserts trust/verified/safe (honesty doctrine: suppression is the
+    // engine declining to warn, not a stamp of approval).
+    const SIGNAL_FAMILY_KEYS = ['record', 'name', 'price', 'fulfillment', 'text', 'defect'];
+    const SIGNAL_FAMILY_LABELS = {
+        record: 'Seller record',
+        name: 'Seller name',
+        price: 'Price signals',
+        fulfillment: 'Fulfillment & checkout',
+        text: 'Listing text',
+        defect: 'Platform return data'
+    };
+    const SIGNAL_FAMILY_OF_REASON = {
+        SELLER_TRACK_RECORD: 'record',
+        FRESH_SELLER_ACCOUNT: 'record',
+        LISTING_NO_REVIEWS: 'record',
+        MERCHANT_IDENTITY: 'name',
+        PRICING_ANOMALY: 'price',
+        EXTENDED_SHIPPING: 'fulfillment',
+        HIDDEN_CHECKOUT: 'fulfillment',
+        LISTING_GENERATION: 'text',
+        DEFECT_HISTORY: 'defect'
+    };
+    function signalFamiliesFlagged(reasons) {
+        const lit = {};
+        (reasons || []).forEach(function (reasonKey) {
+            const fam = SIGNAL_FAMILY_OF_REASON[reasonKey];
+            if (fam) { lit[fam] = true; }
+        });
+        return SIGNAL_FAMILY_KEYS.filter(function (fam) { return !!lit[fam]; });
+    }
+    function buildCounterweightNotes(evaluation) {
+        // Seller-profile and enforcement evaluators never ran the PDP
+        // structural scan, so offer-shape "good" notes are unavailable —
+        // returning nothing is the honest state.
+        if (!evaluation || !evaluation.structuralScanRan) { return []; }
+        const reasons = evaluation.reasons || [];
+        const has = function (key) { return reasons.indexOf(key) >= 0; };
+        const notes = [];
+        if (evaluation.claimedFba) {
+            notes.push('Fulfillment is stated to be handled by Amazon on this listing.');
+        }
+        if (!has('HIDDEN_CHECKOUT')) {
+            notes.push('Standard checkout flow is present on this listing.');
+        }
+        if (!has('DEFECT_HISTORY')) {
+            notes.push('The platform prints no frequently-returned flag on this listing.');
+        }
+        if (!has('LISTING_GENERATION')) {
+            notes.push('Listing text and URL show no mass-generation artifacts.');
+        }
+        return notes;
+    }
+
     // SLEEPER-SELLER GUARD (Field wave 2026-11-07): the buy box prints the
     // seller's OWN feedback stats — "(1,225 ratings) 87% positive over the
     // last 12 months". The product review widget also says "ratings", but
@@ -900,6 +960,12 @@
             tier: tier,
             blockCheckout: ghostTriggered,
             snapshot: snapshot,
+            // Meter/counterweight inputs: the FBA-claim context (reused
+            // from the Route-A waiver computation) and the fact that this
+            // evaluation ran the full PDP structural scan. SP/enforcement
+            // evaluators omit these, which gates offer-shape notes off.
+            claimedFba: routeAWaivesLogistics,
+            structuralScanRan: true,
             // Alpha diagnostics: what the scanner saw and where it came from.
             debug: {
                 textChars: rawText.length,
@@ -1054,6 +1120,11 @@
         const isYellowTier = evaluation.tier === 'yellow';
         const isExtremeTier = evaluation.tier === 'extreme';
 
+        const tierColor = isEnforcement ? PALETTE.enforcement :
+            (isBlueTier ? PALETTE.blueAccent :
+                (isYellowTier ? PALETTE.caution :
+                    (isExtremeTier ? PALETTE.deepCrimson : PALETTE.accent)));
+
         const banner = document.createElement('div');
         banner.id = 'scamscanned-alert-shield';
         banner.setAttribute('role', 'alert');
@@ -1062,12 +1133,7 @@
             position: fixed; top: 0; left: 0; width: 100%;
             background-color: ${PALETTE.surface}; color: ${PALETTE.text};
             font-family: ${FONT_STACK};
-            border-top: 2px solid ${
-                isEnforcement ? PALETTE.enforcement :
-                (isBlueTier ? PALETTE.blueAccent :
-                    (isYellowTier ? PALETTE.caution :
-                        (isExtremeTier ? PALETTE.deepCrimson : PALETTE.accent)))
-            };
+            border-top: 2px solid ${tierColor};
             text-align: left; padding: 16px 28px; z-index: 1000000;
             box-shadow: 0 6px 18px rgba(0,0,0,0.45);
             display: flex; flex-wrap: wrap; align-items: center;
@@ -1149,6 +1215,84 @@
             item.appendChild(label);
             reasonList.appendChild(item);
         });
+
+        // SIGNAL METER + COUNTERWEIGHT BLOCK (user direction, 2026-11-07):
+        // degree via literal zone count; balance via observables-only
+        // "on your side" notes. Suppressed on enforcement and extreme
+        // tiers (record/terminal verdicts must not be softened) and on
+        // evaluators that never ran the PDP structural scan.
+        let signalMeter = null;
+        let columnsBlock = null;
+        if (!isEnforcement && !isExtremeTier && evaluation.structuralScanRan) {
+            const flaggedFamilies = signalFamiliesFlagged(evaluation.reasons);
+            const litSet = {};
+            flaggedFamilies.forEach(function (fam) { litSet[fam] = true; });
+
+            signalMeter = document.createElement('div');
+            signalMeter.id = 'scamscanned-alert-meter';
+            signalMeter.style.cssText =
+                'display: flex; align-items: center; gap: 4px; margin-top: 2px;';
+            SIGNAL_FAMILY_KEYS.forEach(function (fam) {
+                const seg = document.createElement('span');
+                seg.style.cssText =
+                    'width: 26px; height: 6px; border-radius: 3px; background-color: ' +
+                    (litSet[fam] ? tierColor : 'rgba(255,255,255,0.16)') + ';';
+                seg.title = SIGNAL_FAMILY_LABELS[fam];
+                signalMeter.appendChild(seg);
+            });
+            const meterText = document.createElement('span');
+            meterText.textContent = flaggedFamilies.length + ' of 6 signal zones flagged';
+            meterText.style.cssText =
+                'font-size: 11px; color: rgba(255,255,255,0.6); margin-left: 8px;';
+            signalMeter.appendChild(meterText);
+            signalMeter.setAttribute('role', 'img');
+            signalMeter.setAttribute('aria-label',
+                flaggedFamilies.length + ' of 6 signal zones flagged: ' +
+                SIGNAL_FAMILY_KEYS.map(function (fam) {
+                    return SIGNAL_FAMILY_LABELS[fam] + (litSet[fam] ? ' (flagged)' : '');
+                }).join(', '));
+
+            const notes = buildCounterweightNotes(evaluation);
+            if (notes.length > 0) {
+                const watchCol = document.createElement('div');
+                watchCol.style.cssText = 'flex: 1 1 260px; min-width: 220px;';
+                const watchHead = document.createElement('div');
+                watchHead.textContent = 'Watch for:';
+                watchHead.style.cssText =
+                    'font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; ' +
+                    'color: rgba(255,255,255,0.6); margin-bottom: 4px;';
+                watchCol.appendChild(watchHead);
+                watchCol.appendChild(reasonList);
+
+                const counterCol = document.createElement('div');
+                counterCol.id = 'scamscanned-alert-counter';
+                counterCol.style.cssText = 'flex: 1 1 260px; min-width: 220px;';
+                const counterHead = document.createElement('div');
+                counterHead.textContent = 'What\u2019s on your side:';
+                counterHead.style.cssText =
+                    'font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; ' +
+                    'color: rgba(255,255,255,0.6); margin-bottom: 4px;';
+                counterCol.appendChild(counterHead);
+                const counterList = document.createElement('ul');
+                counterList.style.cssText =
+                    'margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px;';
+                notes.forEach(function (noteText) {
+                    const li = document.createElement('li');
+                    li.style.cssText =
+                        'font-size: 13px; font-weight: 400; color: rgba(255,255,255,0.85); line-height: 1.55;';
+                    li.textContent = noteText;
+                    counterList.appendChild(li);
+                });
+                counterCol.appendChild(counterList);
+
+                columnsBlock = document.createElement('div');
+                columnsBlock.id = 'scamscanned-alert-columns';
+                columnsBlock.style.cssText =
+                    'display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; width: 100%;';
+                columnsBlock.appendChild(watchCol);
+                columnsBlock.appendChild(counterCol);
+            }
+        }
 
         // Methodology footnote: reinforces the heuristic (non-assertive)
         // nature of the assessment directly in the UI. Enforcement tier
@@ -1272,7 +1416,14 @@
         if (sellerLine) {
             content.appendChild(sellerLine);
         }
-        content.appendChild(reasonList);
+        if (signalMeter) {
+            content.appendChild(signalMeter);
+        }
+        if (columnsBlock) {
+            content.appendChild(columnsBlock);
+        } else {
+            content.appendChild(reasonList);
+        }
         content.appendChild(footNote);
         if (citation) {
             content.appendChild(citation);
@@ -1449,6 +1600,22 @@
                 const verifyTipEl = existing.querySelector('#scamscanned-alert-verifytip');
                 if (verifyTipEl) {
                     verifyTipEl.remove();
+                }
+                // The signal meter and counterweight column convey
+                // heuristic degree and balance; a record verdict replaces
+                // the evaluation. Retire both, but keep the reasons list
+                // visible by unwrapping it from the columns block.
+                const meterEl = existing.querySelector('#scamscanned-alert-meter');
+                if (meterEl) {
+                    meterEl.remove();
+                }
+                const columnsEl = existing.querySelector('#scamscanned-alert-columns');
+                if (columnsEl) {
+                    const listInColumns = columnsEl.querySelector('ul');
+                    if (listInColumns) {
+                        columnsEl.parentNode.insertBefore(listInColumns, columnsEl);
+                    }
+                    columnsEl.remove();
                 }
             } else {
                 injectSafetyBanner(evaluation);
