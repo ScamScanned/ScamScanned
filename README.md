@@ -13,7 +13,7 @@ signals, it never asserts fraud.
 
 Full walkthrough with troubleshooting: [INSTALL.md](INSTALL.md).
 
-1. Download `scamscanned-alpha-v0.1.0.zip` (Releases page).
+1. Download `scamscanned-alpha-v0.2.0.zip` (Releases page).
 2. Right-click → **Extract All…**
 3. Open `chrome://extensions`, switch on **Developer mode**.
 4. Click **Load unpacked** and select the extracted folder, then pin the shield.

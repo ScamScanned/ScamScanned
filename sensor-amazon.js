@@ -15,6 +15,10 @@
     const MIN_RISK_DAYS = 14;
     const MIN_RISK_WEEKS = 2;
     const PRICE_MARKDOWN_THRESHOLD = 0.70;
+    // Stacked-corroboration band (Field wave 2026-11-07): once another risk
+    // rule has already collected, 50%+ markdowns also read as evidence —
+    // the sleeper-FBA undercut zone is 40-60% off, below the lone threshold.
+    const PRICE_MARKDOWN_STACK_THRESHOLD = 0.50;
 
     const PALETTE = {
         surface: '#1C1C1E',      // Charcoal Matte
@@ -38,6 +42,7 @@
     const LISTING_GENERATION_REASON = 'LISTING_GENERATION_PATTERN';
     const FRESH_SELLER_REASON = 'FRESH_SELLER_ACCOUNT';
     const SELLER_TRACK_RECORD_REASON = 'SELLER_TRACK_RECORD';
+    const ZERO_REVIEW_REASON = 'LISTING_NO_REVIEWS';
 
     const RED_TIER_TITLE = 'Elevated Risk — Multiple Caution Signals Detected';
     const BLUE_TIER_TITLE = 'Unclear Risk — Verify the Seller Before Purchasing';
@@ -74,11 +79,15 @@
         },
         FRESH_SELLER_ACCOUNT: {
             label: 'Seller storefront history is recent',
-            detail: 'This seller account began operating recently and has little verifiable track record. Marshal Very young storefronts correlate with bulk-created burner accounts that operate briefly and vanish once disputes arrive — longer histories are easier to hold accountable.'
+            detail: 'This seller has little verifiable public history so far — the account began recently or has been sparsely active. Young or low-activity storefronts correlate with bulk-created burner accounts that operate briefly and vanish once disputes arrive; longer track records are easier to hold accountable.'
         },
         SELLER_TRACK_RECORD: {
             label: 'Seller ratings trail marketplace norms',
             detail: 'This seller\'s own feedback history shows a positive-rating share below accepted marketplace levels. Reputation deficits tend to persist, so review individual feedback entries — especially negative ones — before purchasing.'
+        },
+        LISTING_NO_REVIEWS: {
+            label: 'This exact listing has no customer reviews yet',
+            detail: 'Zero reviews can simply mean a brand-new product — but there is no third-party history on this page either. Consider comparing equivalent listings that already carry verified feedback before buying.'
         }
     };
 
@@ -261,11 +270,16 @@
         return false;
     }
 
-    // Price Urgency Trap (Rule B-7): extreme markdown beyond 70% off the
-    // reference price combined with third-party fulfillment.
-    function hasDeceptiveMarkdown(pageText) {
+    // Price Urgency Trap (Rule B-7): markdown versus the reference price.
+    // STANDALONE band stays above 70% off and keeps its third-party
+    // fulfillment scope (the original "combined with third-party fulfillment"
+    // intent). The STACKED band (stacked = true, called with corroboration
+    // already collected) fires above 50% off and deliberately overrides the
+    // FBA veto — the 2026-11-07 sleeper-FBA class prints a healthy logistics
+    // window while undercutting the market on an unwarranted listing.
+    function hasDeceptiveMarkdown(pageText, stacked) {
         if (!pageText) return false; // bail cleanly on null/undefined text
-        if (hasSecureLogistics(pageText)) return false;
+        if (!stacked && hasSecureLogistics(pageText)) return false;
 
         const listMatch = pageText.match(
             /(?:list price|typical price|was)\s*[:\-]?\s*\$?\s?(\d[\d,]*(?:\.\d{1,2})?)/i
@@ -277,7 +291,9 @@
         const currentPrice = parseFloat(currentMatch[1].replace(/,/g, ''));
         if (!(listPrice > 0) || !(currentPrice > 0)) return false;
 
-        return (1 - currentPrice / listPrice) > PRICE_MARKDOWN_THRESHOLD;
+        const threshold = stacked ?
+            PRICE_MARKDOWN_STACK_THRESHOLD : PRICE_MARKDOWN_THRESHOLD;
+        return (1 - currentPrice / listPrice) > threshold;
     }
 
     // Text normalization: lowercase the entire page content and collapse all
@@ -359,6 +375,55 @@
         if (!m) return null;
         const name = m[1].trim().replace(/\s+/g, ' ').replace(/\.+$/, '');
         return name || null;
+    }
+
+    // SLEEPER-SELLER GUARD (Field wave 2026-11-07): the buy box prints the
+    // seller's OWN feedback stats — "(1,225 ratings) 87% positive over the
+    // last 12 months". The product review widget also says "ratings", but
+    // never adjacent to "% positive"; requiring the co-phrase inside a short
+    // gap binds the match to the seller cluster. Profile-page format
+    // ("82% positive (+1132 ratings)") is pct-then-count, so it cannot match
+    // this count-then-pct path — seller profiles keep SP-1/SP-2 handling in
+    // the page-type branch. Silence is the default on any parse failure.
+    function getSellerFeedbackCluster(pageText) {
+        if (!pageText) return null;
+        const clusterMatch = pageText.match(
+            /([0-9][0-9,]{0,8})\s*(?:total\s+|feedback\s+)?ratings?\b.{0,24}?([0-9]{1,3})\s*%\s*positive/
+        );
+        if (!clusterMatch) return null;
+        const count = parseInt(clusterMatch[1].replace(/,/g, ''), 10);
+        const pct = parseInt(clusterMatch[2], 10);
+        if (isNaN(count) || isNaN(pct)) return null;
+        if (pct < 0 || pct > 100) return null;
+        return { count: count, pct: pct };
+    }
+
+    // ZERO-TRACK LISTING (stack-only corroborator): listing-level review
+    // absence — "0 global ratings", "no reviews yet", "be the first to
+    // review". Never fires alone; the matrix gates it behind a collected
+    // reason so genuinely-new products stay unbannered.
+    function hasZeroTrackListing(pageText) {
+        if (!pageText) return false;
+        return pageText.indexOf('0 global ratings') >= 0 ||
+               /\bno reviews? yet\b/.test(pageText) ||
+               /\bbe the first to review\b/.test(pageText);
+    }
+
+    // SELLER PROFILE URL PROBE: hrefs only — "Sold by X" anchors carry the
+    // seller profile path (/sp?seller=A...). No text scraping; silence when
+    // the anchor is absent. Feeds the banner's navigational track-record
+    // shortcut, where SP-1/SP-2 evaluate the seller directly.
+    function getSellerProfileUrl() {
+        try {
+            const anchors = document.querySelectorAll('a[href*="/sp?seller="]');
+            for (let i = 0; i < anchors.length; i++) {
+                const abs = anchors[i].href;
+                if (abs && abs.indexOf('amazon.com') >= 0) return abs;
+            }
+        } catch (err) {
+            /* probe unavailable — the link simply does not render */
+        }
+        return null;
     }
 
     // AI-LISTING FINGERPRINT (Rule B-9): mass-generated listings (AI text,
@@ -547,17 +612,17 @@
             };
         }
 
-        if (safeEvaluate(function () { return hasSecureLogistics(pageText); })) {
-            return {
-                isRisky: false, reasons: [], tier: null, blockCheckout: false,
-                debug: {
-                    textChars: rawText.length, source: extracted.source,
-                    bodyChildren: document.body ? document.body.childNodes.length : -1,
-                    head: rawText.replace(/\s+/g, ' ').slice(0, 80),
-                    excerpt: 'neutralized: secure logistics window'
-                }
-            };
-        }
+        // ROUTE A no longer ends the scan with a total pass. FIELD INCIDENT
+        // WAVE 2026-11-07 (sleeper-FBA class): a fresh seller whose MAIN buy
+        // box prints "Ships from Amazon" was whitewashed wholesale — the
+        // seller-history dimensions never evaluated. The claim now waives
+        // ONLY the logistics dimensions (B-1..B-4 shipping, B-8 ghost);
+        // pricing, defect-history, merchant-identity, generation patterns
+        // and the seller cluster still run. The old clean pass is preserved
+        // verbatim whenever nothing else fires — see the tier object below.
+        const routeAWaivesLogistics = safeEvaluate(function () {
+            return hasSecureLogistics(pageText);
+        });
 
         const reasons = [];
         let ghostTriggered = false;
@@ -566,8 +631,11 @@
         // the Blue tier fires instantly and survives any later rule crash).
 
         // B-8: Ghost Listing Fallback (Blue tier) — featured purchase elements
-        // missing from the page text footprint.
-        if (safeEvaluate(function () { return hasGhostListing(pageText); })) {
+        // missing from the page text footprint. Waived under Route A: a
+        // confirmed main-box logistics claim and a collapsed buy box
+        // contradict each other; Route A's DOM-scoped finding wins.
+        if (!routeAWaivesLogistics &&
+            safeEvaluate(function () { return hasGhostListing(pageText); })) {
             ghostTriggered = true;
             reasons.push(GHOST_LISTING_REASON);
         }
@@ -578,7 +646,8 @@
         }
 
         // B-1: Overseas shipping signatures
-        if (safeEvaluate(function () {
+        if (!routeAWaivesLogistics &&
+            safeEvaluate(function () {
             return pageText.includes('ships from overseas') ||
                    pageText.includes('ships via overseas');
         })) {
@@ -587,7 +656,8 @@
 
         // B-2: Day-threshold parser — range-aware ("arrives in 30 days",
         // "arrives in 15-30 days"); the UPPER bound is the risk signal.
-        if (safeEvaluate(function () {
+        if (!routeAWaivesLogistics &&
+            safeEvaluate(function () {
             const dayMatch = pageText.match(/arrives in\s+(\d+)\s*(?:-|–|—|to)?\s*(\d+)?\s*days/);
             if (!dayMatch) return false;
             const upperBound = dayMatch[2] ? parseInt(dayMatch[2], 10) : parseInt(dayMatch[1], 10);
@@ -598,13 +668,15 @@
 
         // B-2b: Date-range shipping estimates ("FREE delivery Tue, Jan 6 -
         // Wed, Feb 11") — later bound beyond the day threshold.
-        if (safeEvaluate(function () { return hasLongShippingDateRange(pageText); })) {
+        if (!routeAWaivesLogistics &&
+            safeEvaluate(function () { return hasLongShippingDateRange(pageText); })) {
             reasons.push(SHIPPING_REASON);
         }
 
         // B-2c: Lead-time phrasing ("Usually ships within 2 to 3 weeks",
         // "ships within 4-6 weeks") — upper bound against the unit threshold.
-        if (safeEvaluate(function () {
+        if (!routeAWaivesLogistics &&
+            safeEvaluate(function () {
             const leadMatch = pageText.match(
                 /(?:ships?|delivery|arrives?)\s+within\s+(\d+)(?:\s*(?:to|-|–)\s*(\d+))?\s+(days?|weeks?)/
             );
@@ -623,7 +695,8 @@
 
         // B-3: Week-threshold parser — range-aware ("delivery in 4 weeks",
         // "delivery in 4-6 weeks"); the UPPER bound is the risk signal.
-        if (safeEvaluate(function () {
+        if (!routeAWaivesLogistics &&
+            safeEvaluate(function () {
             const weekMatch = pageText.match(/delivery in\s+(\d+)\s*(?:-|–|—|to)?\s*(\d+)?\s*weeks/);
             if (!weekMatch) return false;
             const upperBound = weekMatch[2] ? parseInt(weekMatch[2], 10) : parseInt(weekMatch[1], 10);
@@ -633,7 +706,8 @@
         }
 
         // B-4: Generic week cues
-        if (safeEvaluate(function () {
+        if (!routeAWaivesLogistics &&
+            safeEvaluate(function () {
             return pageText.includes('in weeks') || pageText.includes('in several weeks');
         })) {
             reasons.push(SHIPPING_REASON);
@@ -651,9 +725,61 @@
             reasons.push(MERCHANT_IDENTITY_REASON);
         }
 
-        // B-7: Price Urgency Trap
-        if (safeEvaluate(function () { return hasDeceptiveMarkdown(pageText); })) {
+        // B-7: Price Urgency Trap (standalone band: 70%+ markdown)
+        if (safeEvaluate(function () { return hasDeceptiveMarkdown(pageText, false); })) {
             reasons.push(PRICING_ANOMALY_REASON);
+        }
+
+        // SLEEPER-SELLER GUARD (seller cluster: feedback count + positive
+        // share). Bands, SP-parity with the profile page (SP-2 <= 85%):
+        //   pct <= 85            -> SELLER_TRACK_RECORD
+        //   count <= 5           -> FRESH_SELLER_ACCOUNT (tiny samples make
+        //                           the percentage meaningless either way)
+        //   count <= 25 and <=85 -> both.
+        // Direct try/catch (NOT safeEvaluate — that wrapper would coerce the
+        // cluster object to a bare boolean, same pattern as spReasons above).
+        let sellerCluster = null;
+        try {
+            sellerCluster = getSellerFeedbackCluster(pageText);
+        } catch (clusterErr) {
+            console.warn(
+                '[ScamScanned] seller cluster parse error (intercepted):',
+                clusterErr && clusterErr.message ? clusterErr.message : clusterErr
+            );
+        }
+        if (sellerCluster) {
+            if (sellerCluster.pct <= 85) {
+                reasons.push(SELLER_TRACK_RECORD_REASON);
+            }
+            if (sellerCluster.count <= 5 ||
+                (sellerCluster.count <= 25 && sellerCluster.pct <= 85)) {
+                reasons.push(FRESH_SELLER_REASON);
+            }
+        }
+
+        // Amazon's OWN seller-age annotation: "New to Amazon" badges and
+        // "New seller" labels are printed by the platform for accounts inside
+        // the first ~120-day window. Platform-printed evidence, same caution.
+        if (safeEvaluate(function () {
+            return pageText.indexOf('new to amazon') >= 0 ||
+                   pageText.indexOf('new seller') >= 0;
+        })) {
+            reasons.push(FRESH_SELLER_REASON);
+        }
+
+        // STACK-ONLY CORROBORATORS: fire only when another rule has already
+        // collected — zero-track listing (no third-party history on this
+        // product) and the 50-70% markdown band once seller-history risk
+        // exists. This keeps genuinely-new products and honest deep
+        // discounts unbannered.
+        if (reasons.length > 0 && safeEvaluate(function () {
+            return hasZeroTrackListing(pageText);
+        })) {
+            reasons.push(ZERO_REVIEW_REASON);
+        }
+        if (reasons.length > 0 &&
+            safeEvaluate(function () { return hasDeceptiveMarkdown(pageText, true); })) {
+            reasons.push(PRICING_ANOMALY_REASON); // dedupe collapses double-push
         }
 
         // Deduplicate (multiple shipping hits collapse to one entry).
@@ -996,6 +1122,30 @@
             'display: flex; flex-direction: column; align-items: center; gap: 6px;';
         pivotWrap.appendChild(pivotButton);
         pivotWrap.appendChild(pivotSubtext);
+
+        // SELLER TRACK-RECORD SHORTCUT (Field wave 2026-11-07): navigational
+        // verification — routes to the seller's own profile page, where
+        // SP-1/SP-2 run. No affiliate tag, no telemetry: this link verifies,
+        // it does not monetize. Renders only when a profile anchor exists
+        // (silence default). Direct try/catch: safeEvaluate would coerce.
+        let sellerProfileUrl = null;
+        try {
+            sellerProfileUrl = getSellerProfileUrl();
+        } catch (probeErr) {
+            sellerProfileUrl = null;
+        }
+        if (sellerProfileUrl) {
+            const trackLink = document.createElement('a');
+            trackLink.href = sellerProfileUrl;
+            trackLink.target = '_blank';
+            trackLink.rel = 'noopener noreferrer';
+            trackLink.style.cssText = [
+                'font-size: 11px; color: rgba(255,255,255,0.65);',
+                'text-decoration: underline; font-family: ' + FONT_STACK + ';'
+            ].join(' ');
+            trackLink.textContent = 'Check this seller\'s record';
+            pivotWrap.appendChild(trackLink);
+        }
 
         banner.appendChild(icon);
         banner.appendChild(content);
