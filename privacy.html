@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — ScamScanned</title>
+<meta name="description" content="ScamScanned privacy policy: exactly what the browser extension sends, why, what it never collects, and where the open-source code lives.">
+<link rel="icon" href="data:,">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 64px; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
+  header .shield { flex: none; }
+  header .name { font-weight: 700; font-size: 20px; letter-spacing: .2px; }
+  header .tag { color: #94a3b8; font-size: 13px; margin-left: auto; border: 1px solid #334155; border-radius: 999px; padding: 3px 10px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 8px 0 6px; }
+  .lede { color: #94a3b8; margin-bottom: 30px; }
+  h2 { font-size: 18px; margin: 34px 0 10px; color: #f1f5f9; }
+  p, li { color: #cbd5e1; font-size: 15px; }
+  ul { margin: 10px 0 0 20px; }
+  li { margin-top: 8px; }
+  strong { color: #f1f5f9; }
+  code { background: #1e293b; border-radius: 5px; padding: 1px 6px; font-size: 13.5px; color: #7dd3fc; }
+  .callout {
+    background: rgba(16, 185, 129, .08);
+    border: 1px solid rgba(16, 185, 129, .35);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 18px 0 6px;
+  }
+  .callout p { color: #d1fae5; font-size: 14.5px; }
+  a { color: #34d399; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  hr { border: 0; border-top: 1px solid #1e293b; margin: 36px 0 0; }
+  footer { color: #64748b; font-size: 13px; margin-top: 26px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <svg class="shield" width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 2l8 3v6c0 5-3.4 8.6-8 11-4.6-2.4-8-6-8-11V5l8-3z" fill="#10B981"/>
+    <path d="M8.5 12l2.4 2.4L15.6 9.6" stroke="#0f172a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  <span class="name">ScamScanned</span>
+  <span class="tag">Privacy Policy</span>
+</header>
+
+<h1>Privacy Policy</h1>
+<p class="lede">Last updated: November 7, 2026</p>
+
+<p>ScamScanned is free, open-source software you can read line by line (<a href="https://github.com/ScamScanned/ScamScanned" rel="noopener">public repository</a>). The extension has a single purpose: <strong>warn you before you buy from a risky marketplace listing</strong>. This page describes exactly what it does with data — in plain language, and matching the code.</p>
+
+<div class="callout"><p><strong>The short version:</strong> scanning happens entirely in your browser. The extension sends <strong>one anonymous diagnostic</strong> — only when a risk banner fires on an Amazon or Walmart product page. There are no accounts, no cookies, no analytics, no ad networks, and nothing is sold.</p></div>
+
+<h2>What the extension collects</h2>
+<ul>
+  <li><strong>During normal browsing: nothing.</strong> Product pages (Amazon, Walmart, eBay, Etsy) plus local-trade listings (Craigslist, Facebook Marketplace) are scanned locally — the checks read the page in front of you and no browsing history ever leaves your machine as part of a scan.</li>
+  <li><strong>When a risk banner fires</strong> on an Amazon or Walmart product page, the extension sends a single anonymous JSON diagnostic to <code>scamscanned.com</code> containing:
+    <ul>
+      <li>the marketplace name (for example <code>amazon</code>),</li>
+      <li>the URL of the flagged product page,</li>
+      <li>the page title,</li>
+      <li>on Amazon and Walmart, the <strong>seller name</strong> shown on the flagged page (when the page prints one).</li>
+    </ul>
+    That's the full contents of the transmission — exactly the "anonymous diagnostic of the flagged listing" disclosed on our extension page and README.</li>
+  <li><strong>Every other supported site sends nothing at all.</strong> eBay, Etsy, Craigslist and Facebook Marketplace scans are fully local and make no network request to us.</li>
+</ul>
+
+<h2>Why it is sent</h2>
+<ul>
+  <li>to build the <strong>safe-alternatives link</strong> you see in the warning banner (a marketplace search built from the page title),</li>
+  <li>to keep the extension working and catch relay regressions, and</li>
+  <li>to compare the seller name on our server against <strong>a curated list of public enforcement records</strong> (FTC final orders, court judgments). Today that list is empty, so no matching can occur — the feature is dormant by design.</li>
+</ul>
+
+<h2>What we never collect</h2>
+<ul>
+  <li>No accounts, no sign-ups, no cookies, no advertising or tracking identifiers.</li>
+  <li>No browsing history, profiles, or behavioral data — nothing is used to advertise to you.</li>
+  <li>No keystrokes, form data, or page content beyond the fields listed above.</li>
+  <li>Data is never sold, rented, or shared with data brokers.</li>
+</ul>
+
+<h2>Retention</h2>
+<p>The diagnostic is processed to answer the request and is not written to any database at this time. If persistence is ever added, this policy will be updated and the change shipped to the store listing before the code goes live.</p>
+
+<h2>Third parties &amp; the Amazon Associates disclosure</h2>
+<p>The warning banner may offer a link that takes <em>you</em> to Amazon. Clicking is voluntary and builds no profile on our side. As an Amazon Associate, ScamScanned earns from qualifying purchases. The extension contains no analytics SDKs, no third-party trackers, and loads no remote code.</p>
+
+<h2>Stopping the data flow</h2>
+<p>Because nothing is stored, there is nothing to export or delete: uninstalling the extension (or removing its permissions in your browser) stops every transmission instantly.</p>
+
+<h2>Contact</h2>
+<p>Questions, audit requests, or corrections: open a public issue at <a href="https://github.com/ScamScanned/ScamScanned" rel="noopener">github.com/ScamScanned/ScamScanned</a>.</p>
+
+<h2>Changes to this policy</h2>
+<p>Material changes will be reflected here with a new date, and highlighted in the extension's store listing before the affected version ships.</p>
+
+<hr>
+<footer>
+  © 2026 ScamScanned · GPLv3 · As an Amazon Associate, ScamScanned earns from qualifying purchases.
+  <!-- TODO(project owner, optional): swap the GitHub-issue contact for a contact email if you prefer; keep whatever you choose identical in the Chrome Web Store privacy tab. -->
+</footer>
+
+</div>
+</body>
+</html>
