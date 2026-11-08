@@ -1137,6 +1137,21 @@
                     ? 'Bottom line: this offer stacks caution signals. Verify the seller or choose a different listing.'
                     : 'Bottom line: one caution signal on this offer. Verify the seller or choose a different listing.'));
 
+        // VERIFY TIP (user direction, 2026-11-07): the bottom line says
+        // "verify" — this tells shoppers WHAT the fast verification is.
+        // Observable-language doctrine: describes what the shopper will SEE
+        // (photos buyers added, alike-sounding review text) — no assertions
+        // about AI authorship or review authenticity (§5 doctrine).
+        let verifyTip = null;
+        if (!isEnforcement) {
+            verifyTip = document.createElement('div');
+            verifyTip.id = 'scamscanned-alert-verifytip';
+            verifyTip.style.cssText =
+                'font-size: 11.5px; color: rgba(255,255,255,0.65); line-height: 1.5;';
+            verifyTip.textContent =
+                'Fast check: look at the photos buyers added in reviews, then read several of them — reviews that all sound alike can indicate a mass-generated campaign.';
+        }
+
         // SELLER SNAPSHOT LINE (wave 2026-11-07b): the seller-legitimacy
         // answer INSIDE the banner — "Sold by X (1,225 ratings, 87% positive,
         // past 12 months)" — Amazon's own printed stats, so this REPORTS
@@ -1187,6 +1202,9 @@
 
         content.appendChild(headline);
         content.appendChild(bottomLine);
+        if (verifyTip) {
+            content.appendChild(verifyTip);
+        }
         if (sellerLine) {
             content.appendChild(sellerLine);
         }
@@ -1361,6 +1379,12 @@
                 const sellerLineEl = existing.querySelector('#scamscanned-alert-sellerline');
                 if (sellerLineEl) {
                     sellerLineEl.remove();
+                }
+                // The verify tip answers a heuristic verdict; the record
+                // verdict is terminal. Retire it like the seller line.
+                const verifyTipEl = existing.querySelector('#scamscanned-alert-verifytip');
+                if (verifyTipEl) {
+                    verifyTipEl.remove();
                 }
             } else {
                 injectSafetyBanner(evaluation);
