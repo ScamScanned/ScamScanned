@@ -13,7 +13,7 @@ signals, it never asserts fraud.
 
 Full walkthrough with troubleshooting: [INSTALL.md](INSTALL.md).
 
-1. Download `scamscanned-alpha-v0.2.1.zip` (Releases page).
+1. Download `scamscanned-alpha-v0.2.2.zip` (Releases page).
 2. Right-click → **Extract All…**
 3. Open `chrome://extensions`, switch on **Developer mode**.
 4. Click **Load unpacked** and select the extracted folder, then pin the shield.
@@ -45,6 +45,14 @@ and Facebook Marketplace item pages get a small dismissible safety reminder —
 general guidance, never a verdict. Coverage matures as field reports come in.
 The adjudicated enforcement-record feature ships disabled until field
 conditions warrant it.
+
+## Project docs
+
+- [CHANGELOG.md](CHANGELOG.md) — user-facing version history.
+- [SECURITY.md](SECURITY.md) — security posture and the verifiable-claims release gate.
+- [FIELD_TEST_PROTOCOL.md](FIELD_TEST_PROTOCOL.md) — exact steps and template for sending field specimens and logs.
+- [CHROME_STORE.md](CHROME_STORE.md) — Chrome Web Store listing copy, privacy answers, and submission checklist.
+- Methodology: https://scamscanned.com/method.html
 
 ## License
 

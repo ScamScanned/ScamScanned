@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "ScamScanned Alpha",
   "description": "Warns about risky marketplace listing patterns on Amazon, Walmart, eBay, Etsy and local trade. Runs locally in your browser.",
-  "version": "0.2.1",
+  "homepage_url": "https://scamscanned.com/",
+  "version": "0.2.2",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -17,9 +18,6 @@
     },
     "default_title": "ScamScanned Alpha"
   },
-  "permissions": [
-    "activeTab"
-  ],
   "host_permissions": [
     "https://scamscanned.com/*"
   ],

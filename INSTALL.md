@@ -5,9 +5,9 @@ No command line, no account, no configuration.
 
 ## The short version
 
-1. **Download** `scamscanned-alpha-v0.2.1.zip`
+1. **Download** `scamscanned-alpha-v0.2.2.zip`
    (from the [Releases](https://github.com/ScamScanned/ScamScanned/releases) page or
-   [scamscanned.com](https://scamscanned.com/download/scamscanned-alpha-v0.2.1.zip)).
+   [scamscanned.com](https://scamscanned.com/download/scamscanned-alpha-v0.2.2.zip)).
 2. **Right-click the ZIP** in your Downloads folder → **Extract All…**
    (macOS: double-click to unzip).
 3. **Open the extensions page**: type `chrome://extensions` into the address bar.
