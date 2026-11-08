@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>How ScamScanned Decides &mdash; Methodology &amp; Limits | ScamScanned</title>
-<meta name="description" content="The exact rules behind the ScamScanned banner: which printed signals it reads, the four risk bands, the six meter zones, the counterweight column, and the limits we state out loud. Open source &mdash; read the code that does it.">
+<meta name="description" content="The exact rules behind the ScamScanned banner: which printed signals it reads, Amazon's four risk bands and six meter zones, the counterweight column, and the limits we state out loud. Open source &mdash; read the code that does it.">
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -123,10 +123,11 @@ decline, not a stamp of approval.</p></div>
   <li><strong>Listing text surfaces:</strong> the title and URL the page itself chose &mdash;
   mass-generation artifacts like non-native punctuation or keyword-stacking patterns.</li>
   <li><strong>What it never touches:</strong> your account, other tabs, your browsing
-  history, anything typed, and nothing without a printed basis on the scanned page.</li>
+  history, or anything you type. It only reads text printed on the page in front of you.</li>
 </ul>
 
-<h2>The four bands</h2>
+<h2>Amazon's four bands</h2>
+<p style="font-size:13px;color:#94a3b8;margin-top:-6px">This scale applies to Amazon. Walmart, eBay, and Etsy currently use the simpler red/blue banner.</p>
 <div class="quickbox">
   <div style="border-color:#334155">
     <strong>Silent &mdash; no banner</strong>
@@ -150,8 +151,8 @@ decline, not a stamp of approval.</p></div>
   </div>
 </div>
 
-<h2>The six meter zones</h2>
-<p>On yellow, red, and blue banners, the meter at the top lights one zone per <em>family</em> of checks
+<h2>Amazon's six meter zones</h2>
+<p>On Amazon's yellow, red, and blue banners, the meter at the top lights one zone per <em>family</em> of checks
 &mdash; several individual rules collapse into the same zone. Lit means at least one
 rule in that family fired; it counts, it does not grade.</p>
 <ul>
@@ -168,13 +169,13 @@ rule in that family fired; it counts, it does not grade.</p>
   frequently-returned flag.</li>
 </ul>
 
-<h2>Why the banner shows both sides</h2>
-<p>Every banner pairs <strong>Watch for</strong> (what matched) with
+<h2>Why the Amazon banner shows both sides</h2>
+<p>On Amazon, every banner pairs <strong>Watch for</strong> (what matched) with
 <strong>What's on your side</strong> (observations that point the other way: a large
 printed buyer-review count, a standard checkout flow, the absence of a platform defect
-flag, no mass-generation artifacts). Both columns are page facts. On the extreme band
-&mdash; the extreme tier &mdash; the counterweight column retires, because a verdict
-built on several aligned signals shouldn't be softened mid-paragraph.</p>
+flag, no mass-generation artifacts). Both columns are page facts. On the extreme tier,
+the counterweight column is hidden, because a verdict built on several aligned signals
+should not be softened mid-paragraph.</p>
 
 <h2>Limits we state out loud</h2>
 <div class="warn"><p>
@@ -191,12 +192,13 @@ published by governments and courts &mdash; never a ScamScanned determination.
 </p></div>
 
 <h2>What data moves, and when</h2>
-<p>While you browse: nothing. When a banner actually fires: one anonymous diagnostic to
-ScamScanned's own server &mdash; the marketplace, the listing address, the page title,
-and the seller name the page itself printed. No accounts, no cookies, no identifiers,
-nothing sold or shared for advertising. The full data policy lives at
-<a href="privacy.html">privacy.html</a>. Everything the tool claims about itself is
-checkable &mdash; <a href="https://github.com/ScamScanned/ScamScanned" rel="noopener">read the source</a>,
+<p>On Amazon and Walmart, when a warning banner actually fires, one anonymous diagnostic
+goes to ScamScanned's own server &mdash; the marketplace, the listing address, the page
+title, and the seller name the page itself printed. No accounts, no cookies, no identifiers,
+nothing sold or shared for advertising. eBay, Etsy, Craigslist and Facebook scans send
+nothing at all. The full data policy lives at <a href="privacy.html">privacy.html</a>.
+Everything the tool claims about itself is checkable &mdash;
+<a href="https://github.com/ScamScanned/ScamScanned" rel="noopener">read the source</a>,
 and if any request exists beyond the one diagnostic, that's a bug worth reporting publicly.</p>
 
 <hr>

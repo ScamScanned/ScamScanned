@@ -27,6 +27,7 @@
     const LISTING_GENERATION_REASON = 'LISTING_GENERATION_PATTERN';
 
     const RED_TIER_TITLE = 'Elevated Risk — Multiple Caution Signals Detected';
+    const RED_TIER_TITLE_SINGLE = 'Elevated Risk — Caution Signal on This Listing';
     const BLUE_TIER_TITLE = 'Unclear Risk — Verify the Seller Before Purchasing';
     const ENFORCEMENT_TIER_TITLE = 'DO NOT BUY — Official Enforcement Record on Seller';
 
@@ -35,31 +36,31 @@
     const REASON_LIBRARY = {
         EXTENDED_SHIPPING: {
             label: 'Extended waiting period before delivery',
-            detail: 'Delivery estimates far beyond typical marketplace timelines can outlast Walmart protection options. If the item never arrives, the window to dispute may already be closed — the delay itself can be the trap.'
+            detail: 'The delivery estimate is much longer than normal for Walmart. If the item never arrives, the dispute window may close first.'
         },
         HIDDEN_CHECKOUT: {
-            label: 'No standard checkout — purchase routes through secondary offers',
-            detail: 'When the listing\'s featured offer is missing or sold out, "purchase" clicks route through secondary seller channels that may sit outside Walmart\'s normal fulfillment, refund, and dispute protections.'
+            label: 'No standard checkout on this listing',
+            detail: 'The standard offer is missing or sold out, so the purchase may go through a secondary seller. Check who fulfills and refunds the order before paying.'
         },
         MERCHANT_IDENTITY: {
-            label: 'Seller name matches high-risk patterns',
-            detail: 'Machine-generated letter strings and block-capital storefront names correlate with throwaway seller accounts created in bulk and abandoned once disputes begin.'
+            label: 'Seller name has an unusual shape',
+            detail: 'The storefront name contains long random strings or all-caps text. That is a weak signal; some real brands look odd too, so check the seller\'s printed history before deciding.'
         },
         PRICING_ANOMALY: {
-            label: 'Pricing inconsistent with typical retail markups',
-            detail: 'Markdowns this deep are typically used to short-circuit comparison shopping. On mainstream products, an 80–90% "deal" from a third-party seller is usually the bait, not the bargain.'
+            label: 'Deep markdown from the reference price',
+            detail: 'The listed price is far below the reference price. Deep markdowns can be legitimate, but they are also used to rush a decision; compare the reference price and the seller before buying.'
         },
         OFF_PLATFORM_SELLER: {
-            label: 'Seller routes buyers through its own storefront',
-            detail: 'This seller advertises under its own web address. Purchase completion may occur off Walmart.com, outside the marketplace\'s standard buyer protections and dispute tooling.'
+            label: 'Listing points to an outside storefront',
+            detail: 'The listing includes the seller\'s own web address. If checkout leaves Walmart.com, Walmart\'s normal refund and dispute process may not apply.'
         },
         LISTING_GENERATION_PATTERN: {
             label: 'Listing text matches mass-generation patterns',
-            detail: 'The product title and URL contain artifacts typical of bulk-generated listings — non-native punctuation from automated copy-paste workflows, or keyword-stacked phrasing. These patterns correlate strongly with throwaway storefronts.'
+            detail: 'The title or URL contains copy-paste artifacts or repeated keywords. That can happen with template-generated listings, but it is not proof of a problem; use it as a prompt to check the seller.'
         },
         ENFORCEMENT_RECORD: {
-            label: 'Seller appears in official fraud enforcement records',
-            detail: 'A government agency or court has published an enforcement action naming a seller operating under this name. The linked source is the official public record — this notice reports that record and is not an independent determination by ScamScanned.'
+            label: 'Seller appears in official enforcement records',
+            detail: 'A government agency or court has published an enforcement action naming a seller with this name. The link goes to the public record; this notice reports the record, not our own conclusion.'
         }
     };
 
@@ -608,15 +609,17 @@
         headline.id = 'scamscanned-alert-headline';
         headline.style.cssText =
             'font-size: 18px; font-weight: 600; letter-spacing: 0.2px;';
+        const reasonCount = (evaluation.reasons || []).length;
         headline.innerText = isEnforcement ? ENFORCEMENT_TIER_TITLE :
-            (isBlueTier ? BLUE_TIER_TITLE : RED_TIER_TITLE);
+            (isBlueTier ? BLUE_TIER_TITLE :
+                (reasonCount > 1 ? RED_TIER_TITLE : RED_TIER_TITLE_SINGLE));
 
         const reasonList = document.createElement('ul');
         reasonList.style.cssText =
             'margin: 6px 0 0; padding-left: 18px; font-size: 13px;' +
             'color: rgba(255,255,255,0.85); line-height: 1.6;';
         (evaluation.reasons || []).forEach(function (key, index) {
-            const info = REASON_LIBRARY[key] || { label: key, detail: 'Automated heuristic signal.' };
+            const info = REASON_LIBRARY[key] || { label: 'Additional automated signal', detail: 'This listing matched an automated check, but no further detail is available for this signal.' };
             const li = document.createElement('li');
             li.style.position = 'relative';
             const label = document.createElement('span');

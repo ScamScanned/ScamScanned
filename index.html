@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ScamScanned — Browser warnings for scam listings</title>
-<meta name="description" content="Free, open-source browser extension that scans Amazon listings for risky seller patterns before you check out. Walmart, eBay, Etsy, Craigslist and Facebook Marketplace support coming soon. Runs locally. GPLv3.">
+<title>ScamScanned — Warnings for risky marketplace listings</title>
+<meta name="description" content="Free, open-source browser extension that checks marketplace listing pages for risky seller and fulfillment patterns before you check out. Works on Amazon and Walmart, with basic checks on eBay, Etsy, Craigslist and Facebook Marketplace. Runs locally. GPLv3.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2310b981'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M20%2013c0%205-3.5%207.5-7.66%208.95a1%201%200%200%201-.67-.01C7.5%2020.5%204%2018%204%2013V6a1%201%200%200%201%201-1c2%200%204.5-1.2%206.24-2.72a1.17%201.17%200%200%201%201.52%200C14.51%203.81%2017%205%2019%205a1%201%200%200%201%201%201z'/%3E%3Cpath%20d='m9%2012%202%202%204-4'/%3E%3C/svg%3E">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://scamscanned.com/">
-<meta property="og:title" content="ScamScanned — Browser warnings for scam listings">
-<meta property="og:description" content="Free, open-source browser extension that scans Amazon listings for risky seller patterns before you check out. Walmart, eBay, Etsy, Craigslist and Facebook Marketplace support coming soon. Runs locally. GPLv3.">
+<meta property="og:title" content="ScamScanned — Warnings for risky marketplace listings">
+<meta property="og:description" content="Free, open-source browser extension that checks marketplace listing pages for risky seller and fulfillment patterns before you check out. Works on Amazon and Walmart, with basic checks on eBay, Etsy, Craigslist and Facebook Marketplace. Runs locally. GPLv3.">
 <meta property="og:image" content="https://scamscanned.com/assets/scamscanned-og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -291,17 +291,6 @@
     border-radius:5px;padding:4px 9px;
   }
 
-  /* support-the-mission card (reuses guide-card layout) */
-  .support-link{
-    display:inline-flex;align-items:center;gap:8px;margin-top:6px;
-    color:var(--green);font-size:14.5px;font-weight:600;text-decoration:none;
-    border-bottom:1px solid var(--border-strong);padding-bottom:2px;
-    transition:border-color 0.15s ease,color 0.15s ease;
-  }
-  .support-link:hover{border-color:var(--green);color:var(--green-hover)}
-  .support-link .icon{width:15px;height:15px;color:var(--green)}
-  .support-note{display:block;margin-top:8px;font-size:12px;color:var(--text-3)}
-
   /* footer */
   .site-footer{padding:56px 0 72px;font-size:12.5px;color:var(--text-3);line-height:1.75}
   .footer-top{
@@ -433,11 +422,11 @@
   <section class="hero" aria-labelledby="hero-heading">
     <div class="wrap hero-grid">
       <div>
-        <h1 id="hero-heading">A browser extension that warns you before you buy from a scam listing.</h1>
+        <h1 id="hero-heading">A browser extension that warns you before you buy from a risky listing.</h1>
         <p class="lede">
-          ScamScanned checks product pages while you shop and flags the patterns scam
-          storefronts rely on — before your money leaves your account. It runs entirely
-          in your browser, and it&rsquo;s free and open source.
+          ScamScanned checks product pages while you shop and flags the patterns that show
+          up before a bad purchase &mdash; before your money leaves your account. It runs in
+          your browser, and it&rsquo;s free and open source.
         </p>
         <div class="cta-row">
           <a class="btn-primary" href="#install">
@@ -450,10 +439,9 @@
           </a>
         </div>
         <p class="hero-meta">
-          <span class="live-chip">Live</span> on <code>Amazon</code> &middot; <em>coming next:</em>
-          <code class="soon">Walmart</code> &middot; <code class="soon">eBay</code> &middot;
-          <code class="soon">Etsy</code> &middot; <code class="soon">Craigslist</code> &middot;
-          <code class="soon">Facebook Marketplace</code>
+          <span class="live-chip">Live</span> on <code>Amazon</code> and <code>Walmart</code> &middot;
+          <em>basic checks on</em> <code>eBay</code> &middot; <code>Etsy</code> &middot;
+          <code>Craigslist</code> &middot; <code>Facebook Marketplace</code>
         </p>
       </div>
 
@@ -474,8 +462,8 @@
             </div>
             <ul class="banner-reasons">
               <li>Extended third-party shipping window</li>
-              <li>Seller name matches high-risk patterns</li>
-              <li>No standard buy box &mdash; checkout routes through unvetted offers</li>
+              <li>Seller name has an unusual shape</li>
+              <li>No standard buy box on this listing</li>
             </ul>
             <span class="banner-btn">Search Safe Alternatives</span>
           </div>
@@ -555,9 +543,9 @@
             turns this into a one-click install with automatic updates.
           </p>
           <p class="last">
-            Side-loaded extensions occasionally trigger a small Chrome reminder
-            after a restart. That reminder is normal for Alpha installs and
-            disappears once the store listing goes live.
+            Side-loaded extensions can show a small Chrome reminder after a restart.
+            That is normal for a manual install; installing the store version later
+            avoids it.
           </p>
         </article>
       </div>
@@ -569,10 +557,10 @@
     <div class="wrap">
       <div class="section-head">
         <p class="eyebrow">What it detects</p>
-        <h2 id="detects-heading">The tricks behind scam listings, spelled out.</h2>
+        <h2 id="detects-heading">The patterns behind risky listings, spelled out.</h2>
         <p class="section-lede">
-          Scam storefronts reuse the same handful of plays. ScamScanned watches for the
-          concrete ones &mdash; the phrases and page states that show up right before a bad purchase.
+          Risky listings reuse the same handful of plays. ScamScanned watches for the
+          concrete ones &mdash; the phrases and page states that matter before checkout.
         </p>
       </div>
 
@@ -581,8 +569,8 @@
           <svg class="icon" aria-hidden="true"><use href="#i-truck"/></svg>
           <h3>Shipping windows that outlast refunds</h3>
           <p>
-            Third-party sellers list delivery dates weeks past the marketplace&rsquo;s refund
-            deadline. By the time the item never arrives, buyer protection has already expired.
+            A long delivery window can push you past the marketplace&rsquo;s dispute deadline
+            before the item arrives. The banner flags the window; check the date before you pay.
           </p>
           <div class="chip-row" aria-label="Example phrases flagged on the page">
             <span class="chip">Delivery in 4&ndash;6 weeks</span>
@@ -592,35 +580,39 @@
 
         <article class="detect-card">
           <svg class="icon" aria-hidden="true"><use href="#i-user-x"/></svg>
-          <h3>Burner seller identities</h3>
+          <h3>Seller-name shape signals</h3>
           <p>
-            Throwaway storefronts hide behind machine-generated names &mdash; garbled strings,
-            random ALL-CAPS words, or fresh importer accounts with no history behind them.
+            Some storefronts use generated-looking names &mdash; garbled strings, all-caps
+            text, or very short histories. These are weak signals, not proof; the banner
+            shows them next to the seller&rsquo;s printed record.
           </p>
           <div class="chip-row" aria-label="Example seller names flagged on the page">
             <span class="chip">BEST_DEAL_STORE_2024X</span>
-            <span class="chip">HUIYANG TRADING CO.</span>
+            <span class="chip">ALL-CAPS STOREFRONT</span>
           </div>
         </article>
 
         <article class="detect-card">
           <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg>
-          <h3>Checkouts that leave the platform</h3>
+          <h3>Checkout outside the normal flow</h3>
           <p>
-            The listing has no buy box. The &ldquo;purchase&rdquo; button routes you to an off-site
-            page where marketplace protection, refunds, and dispute tools never apply.
+            When the standard buy box is missing, checkout can route through a secondary
+            seller offer. That path may sit outside the marketplace&rsquo;s normal refund and
+            dispute process.
           </p>
-          <div class="chip-row" aria-label="Example link text flagged on the page">
-            <span class="chip">See details on seller&rsquo;s site</span>
+          <div class="chip-row" aria-label="Example page states flagged on the page">
+            <span class="chip">No featured offer available</span>
+            <span class="chip">See all buying options</span>
           </div>
         </article>
 
         <article class="detect-card">
           <svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>
-          <h3>Discounts built to short-circuit you</h3>
+          <h3>Discounts that rush the decision</h3>
           <p>
-            Implausible markdowns exist to stop you from thinking. An 80&ndash;90%
-            &ldquo;deal&rdquo; on a mainstream product is the hook &mdash; the price is the scam, not the steal.
+            A very deep markdown can make a listing look like a bargain before you compare.
+            The banner flags the markdown; treat it as a prompt to check the reference price
+            and the seller.
           </p>
           <div class="chip-row" aria-label="Example pricing flagged on the page">
             <span class="chip">was $499.99, now $89.99</span>
@@ -647,18 +639,19 @@
           <span class="step-num" aria-hidden="true">01</span>
           <h3>Runs locally in your browser</h3>
           <p>
-            Flagging is computed entirely on your device. When a listing is
-            flagged, an anonymous diagnostic of that listing &mdash; its address,
-            title, and seller name &mdash; is relayed so the risk signals keep
-            improving.
+            Flagging is computed on your device. On Amazon and Walmart, when a warning banner
+            actually fires, one anonymous diagnostic &mdash; the listing address, page title,
+            and seller name &mdash; is sent so the banner can build its alternative-search link
+            and check the public enforcement-record list. eBay, Etsy, Craigslist and Facebook
+            scans send nothing.
           </p>
         </li>
         <li class="step">
           <span class="step-num" aria-hidden="true">02</span>
           <h3>Scans each page as you shop</h3>
           <p>
-            When a product page loads, ScamScanned checks it against its scam heuristics
-            on the spot &mdash; shipping terms, seller identity, checkout routing, pricing.
+            When a product page loads, ScamScanned checks the printed page on the spot
+            &mdash; shipping terms, seller record, checkout shape, and pricing.
           </p>
         </li>
         <li class="step">
@@ -695,7 +688,8 @@
             verify beats security you have to trust.
           </p>
           <p class="last">
-            Install instructions for Chrome are in the repository README. Firefox support is on the roadmap.
+            Install instructions for Chrome are in the repository README. Firefox is not
+            supported yet.
           </p>
           <a class="audit-link" href="https://github.com/ScamScanned/ScamScanned" target="_blank" rel="noopener">
             Audit the code on GitHub
@@ -712,10 +706,9 @@
           <span class="license-chip">GPLv3</span>
           <h3>Privacy by architecture</h3>
           <p>
-            To keep data risk at absolute zero, ScamScanned tracks no consumer identities,
-            profiles no search history records, and drops zero tracking ads. Operational
-            infrastructure is funded programmatically via standard marketplace partner
-            distribution fees at zero cost to your family&rsquo;s cart. As an Amazon Associate,
+            ScamScanned does not create accounts, does not sell data, and runs no ads or
+            tracking SDKs. It is funded by affiliate commissions when you choose to buy
+            through a product link, at no extra cost to you. As an Amazon Associate,
             ScamScanned earns from qualifying purchases.
           </p>
         </article>
@@ -735,47 +728,15 @@
           <h3 id="guide-heading">Recovery Guide: Get Your Money Back</h3>
           <p>
             Bought something that never shipped, arrived unlike the listing, or
-            stalled in a refund loop? The recovery guide walks the full ladder
-            in order: seller refund request, the marketplace dispute (&ldquo;A-to-z&rdquo;
-            on Amazon, Money Back Guarantee on eBay, Walmart protections), the
-            card chargeback lane, and the free government reporting steps that
-            build an enforcement trail. Includes a field case study and the
-            timing mistakes that cost people their window.
+            stalled in a refund loop? The guide walks through the platform claim
+            (&ldquo;A-to-z&rdquo; on Amazon, Money Back Guarantee on eBay, Walmart
+            Marketplace Promise, Etsy cases, PayPal), the card-dispute lane, and
+            reporting &mdash; with the exact deadlines and the moves that can close a door.
+            Includes a field case and the timing mistakes to avoid.
           </p>
           <p class="last">
             <a class="btn-primary" href="/recover.html" style="margin:0 0 8px">Open the recovery guide</a><br>
             Free forever, like the extension: no email gate, no course, no upsell.
-          </p>
-        </div>
-      </div>
-
-      <!-- ============ SUPPORT THE MISSION (optional, low-pressure) ============ -->
-      <div class="guide-card" style="margin-top:22px" id="support">
-        <div class="guide-icon-box">
-          <svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg>
-        </div>
-        <div class="guide-body">
-          <span class="soon-chip">Always free &mdash; by design</span>
-          <h3 id="support-heading">Keep ScamScanned independent</h3>
-          <p>
-            Nothing here costs you anything: no paywall, no premium tier, no email gate.
-            The extension and every guide are funded by standard marketplace partner
-            commissions &mdash; the same ones in the disclosure above &mdash; and those keep
-            the lights on by default.
-          </p>
-          <p>
-            Reader contributions are purely optional. Support goes toward keeping the
-            platform independent of the storefronts it scans: research time, public
-            record access, and free refund-help guides. One-time, any amount, and no
-            account or membership gets created.
-          </p>
-          <p class="last">
-            <!-- TODO(payments): swap placeholder href with your Ko-fi / PayPal link before publishing. -->
-            <a class="support-link" data-placeholder="donation-destination">
-              Optionally support the mission
-              <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg>
-            </a>
-            <span class="support-note">Takes you to a secure external payment page. Payment details stay with the processor &mdash; none of it reaches us.</span>
           </p>
         </div>
       </div>
@@ -803,13 +764,11 @@
       <a href="https://github.com/ScamScanned/ScamScanned" target="_blank" rel="noopener">Source (GPLv3)</a>
     </p>
     <p class="footer-legal">
-      <strong>LEGAL NOTICE &amp; REGULATORY DISCLAIMER:</strong>
-      ScamScanned operates strictly as an automated heuristic analysis utility. Risk tiering
-      ratings, threat tracking indicators, and hazard badge metrics are computed algorithmically
-      based on real-time public marketplace footprints and historical fulfillment vectors.
-      ScamScanned does not explicitly guarantee, warrant, or verify the absolute physical safety,
-      merchant quality, or corporate authenticity of items transacted on external commercial
-      directories. Users browse and transact entirely at their own discretion.
+      <strong>Disclaimer:</strong>
+      ScamScanned is an automated informational tool. Risk bands come from checks of
+      public listing text and page signals; they are not a guarantee that a listing,
+      seller, or item is safe or legitimate. ScamScanned is not affiliated with any
+      marketplace. Buy at your own discretion.
     </p>
     <p class="footer-assoc">As an Amazon Associate, ScamScanned earns from qualifying purchases.</p>
     <p class="footer-copy">&copy; 2026 ScamScanned. GPLv3.</p>

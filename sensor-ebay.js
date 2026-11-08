@@ -14,6 +14,7 @@
     const MIN_RISK_DAYS = 14;
 
     const RED_TIER_TITLE = 'Elevated Risk — Multiple Caution Signals Detected';
+    const RED_TIER_TITLE_SINGLE = 'Elevated Risk — Caution Signal on This Listing';
     const BLUE_TIER_TITLE = 'Unclear Risk — Verify the Seller Before Purchasing';
 
     const FONT_STACK = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
@@ -25,15 +26,15 @@
     const REASON_LIBRARY = {
         EXTENDED_SHIPPING: {
             label: 'Extended waiting period before delivery',
-            detail: 'Delivery windows that stretch past typical refund timelines can outlast buyer protection. If the item never arrives, the window to dispute may already be closed.'
+            detail: 'The delivery window is much longer than normal for eBay. If the item never arrives, the dispute window may close first.'
         },
         SHARED_LINK_SOURCE: {
-            label: 'Link was passed through a messaging channel',
-            detail: 'Listing links that travel through SMS, WhatsApp or Messenger sometimes lead to high-pressure funnels intended to bypass marketplace checkout. Legitimate shares look identical from the link alone, so treat this as context and verify the seller before buying.'
+            label: 'Link carries a share or messaging marker',
+            detail: 'The link includes a share or messaging parameter. That is common in legitimate shares too, so treat it as context, not proof. Verify the seller and stay on eBay checkout.'
         },
         OVERSEAS_ORIGIN: {
-            label: 'Item ships from a distant origin',
-            detail: 'The seller states the item is located overseas. International origins correlate with longer disputes and higher return friction — this is context, not proof of a problem.'
+            label: 'Seller states an overseas location',
+            detail: 'The listing says the item is located overseas. International returns and disputes can take longer; this is context, not proof of a problem.'
         }
     };
 
@@ -284,7 +285,9 @@
 
         const headline = document.createElement('div');
         headline.style.cssText = 'font-size: 16px; font-weight: 600;';
-        headline.innerText = isBlueTier ? BLUE_TIER_TITLE : RED_TIER_TITLE;
+        const reasonCount = (evaluation.reasons || []).length;
+        headline.innerText = isBlueTier ? BLUE_TIER_TITLE :
+            (reasonCount > 1 ? RED_TIER_TITLE : RED_TIER_TITLE_SINGLE);
 
         const reasonList = document.createElement('ul');
         reasonList.style.cssText =
@@ -292,7 +295,7 @@
             'color: rgba(255,255,255,0.85); line-height: 1.55;';
         (evaluation.reasons || []).forEach(function (key) {
             const info = REASON_LIBRARY[key] ||
-                { label: key, detail: 'Automated heuristic signal.' };
+                { label: 'Additional automated signal', detail: 'This listing matched an automated check, but no further detail is available for this signal.' };
             const li = document.createElement('li');
             li.style.position = 'relative';
             const label = document.createElement('span');

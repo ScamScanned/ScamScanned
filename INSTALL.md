@@ -6,8 +6,7 @@ No command line, no account, no configuration.
 ## The short version
 
 1. **Download** `scamscanned-alpha-v0.2.2.zip`
-   (from the [Releases](https://github.com/ScamScanned/ScamScanned/releases) page or
-   [scamscanned.com](https://scamscanned.com/download/scamscanned-alpha-v0.2.2.zip)).
+   from [scamscanned.com](https://scamscanned.com/download/scamscanned-alpha-v0.2.2.zip).
 2. **Right-click the ZIP** in your Downloads folder → **Extract All…**
    (macOS: double-click to unzip).
 3. **Open the extensions page**: type `chrome://extensions` into the address bar.
@@ -26,8 +25,7 @@ listing) appears on Craigslist and Facebook Marketplace item pages.
 
 - Chrome may occasionally show a small reminder banner that a manually added
   ("developer mode") extension is running. That reminder is expected for any
-  side-loaded extension and it disappears once ScamScanned is accepted into
-  the Chrome Web Store.
+  side-loaded extension. Installing the Chrome Web Store version later avoids it.
 - Chrome sometimes rewrites `chrome://extensions` into plain text if you type
   it in a search box — make sure it lands in the **address bar**.
 

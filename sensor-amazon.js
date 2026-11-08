@@ -69,47 +69,47 @@
     const REASON_LIBRARY = {
         EXTENDED_SHIPPING: {
             label: 'Extended third-party shipping window',
-            detail: 'Delivery estimates far beyond typical marketplace timelines can outlast the buyer-protection period. If the item never arrives, the refund window may already be closed — the delay itself can be the trap.'
+            detail: 'The delivery estimate is much longer than normal for this marketplace. If the item never arrives, the dispute window may close before you can recover your money.'
         },
         FULFILLMENT_CLAIM_CONFLICT: {
-            label: 'Contradictory fulfillment and delivery claims',
-            detail: 'The main offer prints Amazon fulfillment ("Ships from Amazon" / "Fulfilled by Amazon") while its own main delivery estimate is two or more weeks out. Amazon-handled orders normally arrive in days, so the two printed statements cannot both be true. This check reads only the offer\'s logistics block — never recommendation carousels. If the main delivery line shows normal timing, this signal should not appear; report it with the console evidence.'
+            label: 'Amazon fulfillment claim conflicts with the delivery estimate',
+            detail: 'The offer says Amazon handles fulfillment, but its own delivery estimate is two or more weeks out. Those two statements do not fit together. Check the main delivery line; if it shows normal timing, this signal is wrong.'
         },
         HIDDEN_CHECKOUT: {
-            label: 'No standard buy box — checkout routes through unvetted offers',
-            detail: 'When a listing shows no featured offer, purchases route through secondary seller channels that may fall outside normal marketplace fulfillment, refund, and dispute protections.'
+            label: 'No standard buy box on this listing',
+            detail: 'Without a standard buy box, the purchase can route through a secondary seller offer outside the marketplace\'s normal checkout and refund process.'
         },
         DEFECT_HISTORY: {
             label: 'Frequently returned item',
-            detail: 'The marketplace itself flags this item as returned unusually often. High return rates on listings like this often signal misrepresented condition, quality, or compatibility.'
+            detail: 'The marketplace flags this item as returned often. That can point to condition, quality, or fit problems; check the return details before buying.'
         },
         MERCHANT_IDENTITY: {
-            label: 'Seller name matches high-risk patterns',
-            detail: 'Machine-generated letter strings and block-capital storefront names correlate with throwaway seller accounts created in bulk and abandoned once chargebacks begin.'
+            label: 'Seller name has an unusual shape',
+            detail: 'The storefront name contains long random strings or all-caps text. That is a weak signal; some real brands look odd too, so check the seller\'s printed history before deciding.'
         },
         PRICING_ANOMALY: {
-            label: 'Pricing inconsistent with typical retail markups',
-            detail: 'Markdowns this deep are typically used to short-circuit comparison shopping. On mainstream products, an 80–90% "deal" from a new third-party seller is usually the bait, not the bargain.'
+            label: 'Deep markdown from the reference price',
+            detail: 'The listed price is far below the reference price. Deep markdowns can be legitimate, but they are also used to rush a decision; compare the reference price and the seller before buying.'
         },
         ENFORCEMENT_RECORD: {
-            label: 'Seller appears in official fraud enforcement records',
-            detail: 'A government agency or court has published an enforcement action naming a seller operating under this name. The linked source is the official public record — this notice reports that record and is not an independent determination by ScamScanned.'
+            label: 'Seller appears in official enforcement records',
+            detail: 'A government agency or court has published an enforcement action naming a seller with this name. The link goes to the public record; this notice reports the record, not our own conclusion.'
         },
         LISTING_GENERATION_PATTERN: {
             label: 'Listing text matches mass-generation patterns',
-            detail: 'The product title and URL contain artifacts typical of bulk-generated listings — non-native punctuation from automated copy-paste workflows, or keyword-stacked phrasing. These patterns correlate strongly with throwaway storefronts and template-generated product pages.'
+            detail: 'The title or URL contains copy-paste artifacts or repeated keywords. That can happen with template-generated listings, but it is not proof of a problem; use it as a prompt to check the seller.'
         },
         FRESH_SELLER_ACCOUNT: {
             label: 'Seller storefront history is recent',
-            detail: 'This seller has little verifiable public history so far — the account began recently or has been sparsely active. Young or low-activity storefronts correlate with bulk-created burner accounts that operate briefly and vanish once disputes arrive; longer track records are easier to hold accountable.'
+            detail: 'This seller has little public history. That means there is less record to check, not that the seller is bad. Look at the printed ratings and badges if they exist.'
         },
         SELLER_TRACK_RECORD: {
             label: 'Seller ratings trail marketplace norms',
-            detail: 'This seller\'s own feedback history shows a positive-rating share below accepted marketplace levels. Reputation deficits tend to persist, so review individual feedback entries — especially negative ones — before purchasing.'
+            detail: 'The seller\'s printed positive-rating share is below the marketplace\'s usual level. Read recent feedback before buying.'
         },
         LISTING_NO_REVIEWS: {
             label: 'This exact listing has no customer reviews yet',
-            detail: 'Zero reviews can simply mean a brand-new product — but there is no third-party history on this page either. Consider comparing equivalent listings that already carry verified feedback before buying.'
+            detail: 'This can simply mean the product is new. Compare it with similar listings that already have verified reviews.'
         }
     };
 

@@ -1,7 +1,7 @@
 # Chrome Web Store Submission Pack
 
 Status: agent-side preparation complete; account, fee, screenshots, and final submit are user-side.
-Build: `scamscanned-alpha-v0.2.2.zip` (12 entries, 60,575 B, SHA256 `3E0FF241103404E7CAD4AB2C90BC59BCC8EC8AB82FF401298233B3E99C031C76`).
+Build: `scamscanned-alpha-v0.2.2.zip` (12 entries, 60,215 B, SHA256 `EA2151C0EB179D34EAE09186836D5B0EF15B3C2A2B6B522206A41EA3DB0DAB12`).
 
 - Homepage: https://scamscanned.com/
 - Privacy policy: https://scamscanned.com/privacy.html
@@ -52,7 +52,7 @@ WHAT IT CHECKS
 - eBay, Etsy, Craigslist, and Facebook Marketplace get smaller, honest checks and a local-trade safety reminder.
 
 HOW THE BANNER WORKS
-Risk is graduated: no banner, low caution (yellow), elevated (red), or extreme. The banner names the signals that matched, shows a six-zone meter, and lists page facts that point the other way. It reports observations, never a verdict about a person or a guarantee that a listing is safe.
+On Amazon, risk is graduated: no banner, low caution (yellow), elevated (red), or extreme. The banner names the signals that matched and shows a six-zone meter with a counterweight column. On the other supported marketplaces, the banner names the signals without the meter. It reports observations, never a verdict about a person or a guarantee that a listing is safe.
 
 WHAT IT DOES NOT DO
 - It does not analyze product photos or review images.
@@ -135,7 +135,7 @@ ScamScanned is a local, privacy-first listing checker. It has no accounts, no an
 To test:
 1. Install the extension.
 2. Open a supported product page. A banner is intentionally absent on healthy pages; silence is the honest result when no configured check matches.
-3. For a banner specimen, open the Amazon listing with ASIN B0H69DP8CB (a recorded mass-generated listing) and compare against a mainstream listing from a major brand, which should stay silent.
+3. A banner is data-dependent. The ASIN B0H69DP8CB is a calibration specimen, not a guaranteed banner; the listing screenshots show the banner UI. Healthy pages stay silent by design because silence means no configured check matched.
 4. The extension contacts only https://scamscanned.com/api/index.php, and only when a banner renders on Amazon or Walmart. eBay, Etsy, Craigslist, and Facebook scans are fully local.
 5. The full source, privacy policy, and methodology page are public: https://scamscanned.com/method.html
 
