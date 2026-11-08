@@ -207,7 +207,12 @@
     // recommendation-rail dates must never enter this parser.
     function findLongShippingDateRange(pageText) {
         if (!pageText) return null;
-        const keywordRe = /(arrives?|arrival|deliver(?:y|ies|ed)?|ships?)/g;
+        // Word boundaries matter: "Shipper / Seller" must not count as a
+        // shipping keyword. Field false positive: the return-policy line
+        // "FREE refund/replacement until Jan 31, 2027" sat within 90 chars
+        // of "Shipper", producing a fake 84-day delivery horizon.
+        const keywordRe = /\b(?:arrives?|arrival|deliver(?:y|ies|ed)?|ships?)\b/g;
+        const returnContextRe = /(?:return|refund|replacement|warranty|guarantee|policy)/i;
         const now = new Date();
         const currentMonth = now.getMonth() + 1;
         let km;
@@ -216,6 +221,10 @@
             const dateRe = /([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/g;
             let dm;
             while ((dm = dateRe.exec(windowText)) !== null) {
+                // A date inside a returns/refund/warranty sentence is not a
+                // delivery estimate, even when a logistics word precedes it.
+                if (returnContextRe.test(windowText.slice(0, dm.index))) continue;
+
                 const month = parseMonthToken(dm[1]);
                 const day = parseInt(dm[2], 10);
                 if (!month || day < 1 || day > 31) continue;
@@ -264,17 +273,31 @@
     function hasSecureLogistics(pageText) {
         if (!pageText) return false;
 
+        // Recognize every layout Amazon uses for its own fulfillment:
+        // "Ships from Amazon", "Fulfilled by Amazon", the common tabular
+        // "Ships from and sold by Amazon.com", and the offer-display row
+        // "Shipper / Seller Amazon.com". The older exact-string check missed
+        // the tabular form, so Amazon-sold pages were treated as third-party
+        // (field false positive, LEGO 60442).
+        const isAmazonFulfillmentText = function (text) {
+            return text.includes('ships from amazon') ||
+                   text.includes('fulfilled by amazon') ||
+                   text.includes('ships from and sold by amazon') ||
+                   text.includes('ships from & sold by amazon') ||
+                   text.includes('shipper / seller amazon') ||
+                   /\bsold by amazon(?:\.com)?\b/.test(text);
+        };
+
         // Primary: the page's real buy-box containers. Carousel and
         // cross-sell text never lives here.
         try {
             const containers = document.querySelectorAll(
-                '#buybox, #tabular-buybox, #merchant-info, #seller-profile-container, #desktop_buybox'
+                '#buybox, #tabular-buybox, #merchant-info, #seller-profile-container, #desktop_buybox, #fulfillerInfoFeature_feature_div'
             );
             for (let i = 0; i < containers.length; i++) {
                 const boxText = normalizePageText(containers[i].innerText || '');
                 if (boxText.includes('overseas')) return false; // main box: third-party
-                if (boxText.includes('ships from amazon') ||
-                    boxText.includes('fulfilled by amazon')) {
+                if (isAmazonFulfillmentText(boxText)) {
                     return true;
                 }
             }
@@ -291,8 +314,7 @@
             firstAnchor.index + 300
         );
         if (windowText.includes('overseas')) return false; // third-party clause
-        return windowText.includes('ships from amazon') ||
-               windowText.includes('fulfilled by amazon');
+        return isAmazonFulfillmentText(windowText);
     }
 
     // MAIN-OFFER LOGISTICS SCOPE (2026-11-07 field precision fix): delivery
