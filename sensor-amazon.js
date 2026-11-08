@@ -19,6 +19,12 @@
     // rule has already collected, 50%+ markdowns also read as evidence —
     // the sleeper-FBA undercut zone is 40-60% off, below the lone threshold.
     const PRICE_MARKDOWN_STACK_THRESHOLD = 0.50;
+    // PRODUCT REVIEW VOLUME (wave 2026-11-07j): printed buyer-rating counts
+    // on the PDP. 250+ earns an observable counterweight note; 1000+
+    // additionally suppresses the sole name-shape inference (weakest
+    // inference defers to the strongest printed evidence — 12d doctrine).
+    const PRODUCT_REVIEW_VOLUME_NOTE_THRESHOLD = 250;
+    const PRODUCT_REVIEW_VOLUME_SUPPRESS_THRESHOLD = 1000;
 
     const PALETTE = {
         surface: '#1C1C1E',      // Charcoal Matte
@@ -469,6 +475,14 @@
         if (!has('LISTING_GENERATION')) {
             notes.push('Listing text and URL show no mass-generation artifacts.');
         }
+        // Printed product-review volume (wave 2026-11-07j): an observable
+        // about the page — no adjective, no certification, just the count
+        // the widget itself prints. Absent (null/undefined) renders nothing.
+        if (typeof evaluation.productReviewVolume === 'number' &&
+            evaluation.productReviewVolume >= PRODUCT_REVIEW_VOLUME_NOTE_THRESHOLD) {
+            notes.push('The product page shows ' + evaluation.productReviewVolume +
+                ' buyer ratings.');
+        }
         return notes;
     }
 
@@ -502,6 +516,20 @@
         return pageText.indexOf('0 global ratings') >= 0 ||
                /\bno reviews? yet\b/.test(pageText) ||
                /\bbe the first to review\b/.test(pageText);
+    }
+
+    // PRODUCT REVIEW VOLUME (wave 2026-11-07j): the PDP product widget's
+    // own review counter ("N global ratings"), keyed on the same phrase
+    // hasZeroTrackListing uses — deliberately DISTINCT from the seller
+    // cluster, which requires the "% positive" adjacency so the two
+    // counters can never be confused.
+    function getProductReviewVolume(pageText) {
+        if (!pageText) return null;
+        const m = pageText.match(/([0-9][0-9,]{0,8})\s+global\s+ratings/);
+        if (!m) return null;
+        const count = parseInt(m[1].replace(/,/g, ''), 10);
+        if (isNaN(count) || count < 0) return null;
+        return count;
     }
 
     // SELLER PROFILE URL PROBE: hrefs only — "Sold by X" anchors carry the
@@ -862,17 +890,32 @@
         // the page's own seller data CONTRADICTS the burner-shape inference —
         // the signal is suppressed entirely; silence is the honest verdict.
         // No/weak record: the shape still fires.
+        // PRODUCT-REVIEW VOLUME SUPPRESSION (wave 2026-11-07j): a product
+        // with 1,000+ printed buyer ratings carries genuine third-party
+        // transaction history — the weakest inference about the SELLER must
+        // not outrun the strongest printed evidence about the OFFER.
+        // Counterparty risk stays gated by the fresh/track rules regardless
+        // (a burner riding an old high-volume ASIN still trips FRESH_SELLER).
         const merchantShapeHit = safeEvaluate(function () {
             return hasGarbledMerchantName(rawText);
         });
         const healthySellerRecord = !!(sellerCluster &&
             sellerCluster.count >= 100 && sellerCluster.pct >= 90);
-        if (merchantShapeHit && healthySellerRecord) {
-            console.log(
-                '[ScamScanned] merchant name shape suppressed:' +
-                ' healthy seller record contradicts burner-shape inference');
-        } else if (merchantShapeHit) {
-            reasons.push(MERCHANT_IDENTITY_REASON);
+        const productReviewVolume = getProductReviewVolume(pageText);
+        if (merchantShapeHit) {
+            if (productReviewVolume !== null &&
+                productReviewVolume >= PRODUCT_REVIEW_VOLUME_SUPPRESS_THRESHOLD) {
+                console.log(
+                    '[ScamScanned] merchant name shape suppressed:' +
+                    ' product buyer-review volume (' + productReviewVolume +
+                    ') contradicts burner-shape inference');
+            } else if (healthySellerRecord) {
+                console.log(
+                    '[ScamScanned] merchant name shape suppressed:' +
+                    ' healthy seller record contradicts burner-shape inference');
+            } else {
+                reasons.push(MERCHANT_IDENTITY_REASON);
+            }
         }
 
         // B-7: Price Urgency Trap (standalone band: 70%+ markdown)
@@ -980,6 +1023,7 @@
             // evaluators omit these, which gates offer-shape notes off.
             claimedFba: routeAWaivesLogistics,
             structuralScanRan: true,
+            productReviewVolume: productReviewVolume,
             // Alpha diagnostics: what the scanner saw and where it came from.
             debug: {
                 textChars: rawText.length,
@@ -1466,6 +1510,13 @@
         const buildFallbackQuery = function (title, sellerName) {
             let t = String(title || '').split(' : ')[0];
             t = t.replace(/&(amp|nbsp|lt|gt|quot|#39);/gi, ' ');
+            // Deal-marketing phrases are pricing-page artifacts, not product
+            // identity (wave 2026-11-07j; server buildPivotQuery parity).
+            // Seasonal words (advent, christmas...) stay: legit intent.
+            t = t.replace(
+                /limited time deals?|deal of the day|prime day|black friday|cyber monday/gi,
+                ' '
+            );
             const sellerTokens = {};
             String(sellerName || '').toLowerCase().split(/\s+/)
                 .forEach(function (tok) {
@@ -1480,7 +1531,8 @@
                 // "Amazoncom"/"amp"/year tokens reached results verbatim via
                 // the server pivot before this pass existed on either side).
                 'amp': true, 'nbsp': true,
-                'amazon': true, 'amazoncom': true, 'com': true
+                'amazon': true, 'amazoncom': true, 'com': true,
+                'deal': true, 'deals': true
             };
             return t.toLowerCase()
                 .replace(/[^a-z0-9\s\-]/g, ' ')
