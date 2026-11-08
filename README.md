@@ -38,6 +38,7 @@ Amazon carries the deepest rule set (listing checks plus seller-profile inspecti
 - [SECURITY.md](SECURITY.md) — security posture and the verifiable-claims release gate.
 - [FIELD_TEST_PROTOCOL.md](FIELD_TEST_PROTOCOL.md) — exact steps and template for sending field specimens and logs.
 - [CHROME_STORE.md](CHROME_STORE.md) — Chrome Web Store listing copy, privacy answers, and submission checklist.
+- [api/index.php](api/index.php) — relay endpoint and alternative-search link builder.
 - [privacy.html](privacy.html) — the privacy policy, mirrored for source-level auditability.
 - [recover.html](recover.html) — the refund-recovery guide, mirrored for source-level auditability.
 - Methodology: https://scamscanned.com/method.html
