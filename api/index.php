@@ -22,7 +22,7 @@ $input = json_decode(file_get_contents('php://input'), true);
 if (!$input || !isset($input['platform_source'])) {
     echo json_encode([
         'server_status' => 'ONLINE',
-        'api_version' => '0.2.3',
+        'api_version' => '0.2.4',
         'message' => 'ScamScanned API is online.'
     ]);
     exit;
@@ -70,6 +70,11 @@ function buildPivotQuery($title, $sellerName) {
         ' ',
         $t
     );
+    // Split digit/letter runs before tokenization: "1:64Collectible" is
+    // "1:64 Collectible", not one token "64collectible". The scale digits are
+    // dropped by the pure-digit filter; the descriptive word survives.
+    $t = preg_replace('/([0-9])([a-z])/i', '$1 $2', $t);
+    $t = preg_replace('/([a-z])([0-9])/i', '$1 $2', $t);
     $noise = [
         'with' => 1, 'and' => 1, 'for' => 1, 'the' => 1, 'a' => 1,
         'of' => 1, 'set' => 1, 'pack' => 1, 'bundle' => 1,
@@ -133,7 +138,7 @@ if ($sellerName !== '' && is_readable(REGISTRY_PATH)) {
 
 $response = [
     'server_status' => 'ONLINE',
-    'api_version' => '0.2.3',
+    'api_version' => '0.2.4',
     // Top-level duplicate + legacy nested shape: tolerant clients read
     // whichever contract version they shipped against.
     'safe_pivot_url' => $safePivotUrl,
