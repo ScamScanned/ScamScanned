@@ -105,6 +105,20 @@
         }
     }
 
+    // Page-type gate: Walmart product detail URLs are /ip/...; search,
+    // category and homepage surfaces are not listings and must not banner.
+    function isWalmartProductPath(pathname) {
+        return /\/ip\//i.test(String(pathname || ''));
+    }
+
+    function isWalmartProductPage() {
+        try {
+            return isWalmartProductPath(window.location && window.location.pathname);
+        } catch (err) {
+            return false;
+        }
+    }
+
     // Deep shadow-DOM walker (same design as the Amazon engine): Walmart
     // widgets occasionally respawn inside light-DOM islands and custom
     // elements; the walker keeps text collection resilient either way.
@@ -755,6 +769,7 @@
 
     function runSafetyCheck() {
         if (window.top !== window.self) return;
+        if (!isWalmartProductPage()) return;
         const evaluation = safeEvaluate(checkListingSafety) || {
             isRisky: false, reasons: [], tier: null, blockCheckout: false
         };

@@ -8,7 +8,7 @@ It reads the page you are already viewing and shows a warning banner when a list
 
 Full walkthrough with troubleshooting: [INSTALL.md](INSTALL.md).
 
-1. Download `scamscanned-alpha-v0.2.3.zip` from [scamscanned.com](https://scamscanned.com/download/scamscanned-alpha-v0.2.3.zip).
+1. Download `scamscanned-alpha-v0.2.4.zip` from [scamscanned.com](https://scamscanned.com/download/scamscanned-alpha-v0.2.4.zip).
 2. Right-click → **Extract All…**
 3. Open `chrome://extensions`, switch on **Developer mode**.
 4. Click **Load unpacked** and select the extracted folder, then pin the shield.

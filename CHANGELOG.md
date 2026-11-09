@@ -3,6 +3,11 @@
 All notable user-facing changes to the ScamScanned browser extension are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.4] — 2026-11-08
+
+### Fixed
+- Page-type gate: Amazon search, category, deals, and home pages no longer run the listing matrix or show a banner. Only Amazon product-detail paths (`/dp/`, `/gp/product/`, `/gp/aw/d/`, `/product/`) and Walmart `/ip/` pages are scanned. Amazon seller `/sp` pages keep their separate seller-profile panel.
+
 ## [0.2.3] — 2026-11-08
 
 ### Added

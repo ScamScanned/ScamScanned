@@ -806,6 +806,23 @@
         }
     }
 
+    // Page-type gate: only product detail pages may run the listing matrix.
+    // Search results, category pages, deals pages and the homepage all contain
+    // product-like text and prices; scanning them produced false banners on
+    // search pages (field 2026-11-08). Seller profiles are handled separately.
+    function isAmazonProductPath(pathname) {
+        return /\/(?:dp|gp\/product|gp\/aw\/d|product)\/[A-Z0-9]{10}(?:\/|$)/i
+            .test(String(pathname || ''));
+    }
+
+    function isProductDetailPage() {
+        try {
+            return isAmazonProductPath(window.location && window.location.pathname);
+        } catch (err) {
+            return false;
+        }
+    }
+
     function evaluateSellerProfilePage(pageText) {
         if (!pageText) return [];
         const reasons = [];
@@ -2078,6 +2095,9 @@
     // anomaly logs a single warning instead of an unhandled TypeError.
     function scanPage() {
         try {
+            if (!isProductDetailPage() && !isSellerProfilePage()) {
+                return;
+            }
             const listingEvaluation = checkListingSafety();
             logScanSummary(listingEvaluation);
             injectSafetyBanner(listingEvaluation);
