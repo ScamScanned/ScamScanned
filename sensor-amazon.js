@@ -52,6 +52,7 @@
     const SELLER_TRACK_RECORD_REASON = 'SELLER_TRACK_RECORD';
     const ZERO_REVIEW_REASON = 'LISTING_NO_REVIEWS';
     const FULFILLMENT_CONFLICT_REASON = 'FULFILLMENT_CLAIM_CONFLICT';
+    const SHIPPING_COST_REASON = 'SHIPPING_COST';
 
     const RED_TIER_TITLE = 'Elevated Risk — Multiple Caution Signals Detected';
     // Single-signal variant (field 2026-11-07): the multi headline may not
@@ -74,6 +75,10 @@
         FULFILLMENT_CLAIM_CONFLICT: {
             label: 'Amazon fulfillment claim conflicts with the delivery estimate',
             detail: 'The offer says Amazon handles fulfillment, but its own delivery estimate is two or more weeks out. Those two statements do not fit together. Check the main delivery line; if it shows normal timing, this signal is wrong.'
+        },
+        SHIPPING_COST: {
+            label: 'High shipping charge',
+            detail: 'The listing prints an explicit shipping charge above $5. This is a cost disclosure, not a risk verdict; check the total before you buy.'
         },
         HIDDEN_CHECKOUT: {
             label: 'No standard buy box on this listing',
@@ -361,6 +366,80 @@
         return pageText.slice(Math.max(0, anchor.index - 100), anchor.index + 600);
     }
 
+    // SHIPPING-COST DISCLOSURE (2026-11-08): a printed shipping charge is a
+    // cost fact, not a scam signal. Warn on any explicit charge over $5;
+    // escalate the cost warning at $15 and again at $30 / above item price.
+    const SHIPPING_COST_MIN = 5;
+
+    function parseMoneyAmount(value) {
+        const m = String(value || '').match(/\$?\s*(\d[\d,]*(?:\.\d{1,2})?)/);
+        if (!m) return null;
+        const n = parseFloat(m[1].replace(/,/g, ''));
+        return (isFinite(n) && n > 0) ? n : null;
+    }
+
+    function findExplicitShippingCharge(rawText) {
+        const text = normalizePageText(rawText);
+        if (!text) return null;
+
+        // "Shipping: $7.99", "Delivery: $5.99", "Shipping cost $7.99",
+        // "Shipping & Import Fees Deposit: $12.34". The keyword must be
+        // followed by the amount (or a cost/fee/charge label), so unrelated
+        // phrases like "shipping distance" or "free delivery over $35" do not
+        // match.
+        const afterKeyword = /(?:shipping|delivery|postage|shipping\s*&\s*import\s*fees\s*deposit)(?:\s*(?:cost|fee|charge))?\s*[:\-]?\s*\$\s*(\d[\d,]*(?:\.\d{1,2})?)/g;
+        let m;
+        while ((m = afterKeyword.exec(text)) !== null) {
+            const before = text.slice(Math.max(0, m.index - 28), m.index);
+            if (/\bfree\b/.test(before) || /\bfree\b/.test(m[0])) continue;
+            const amount = parseFloat(m[1].replace(/,/g, ''));
+            if (isFinite(amount) && amount > 0) return amount;
+        }
+
+        // "$7.99 shipping", "plus $5.99 delivery".
+        const beforeKeyword = /\$\s*(\d[\d,]*(?:\.\d{1,2})?)\s*(?:shipping|delivery|postage)/g;
+        while ((m = beforeKeyword.exec(text)) !== null) {
+            const before = text.slice(Math.max(0, m.index - 28), m.index);
+            if (/\bfree\b/.test(before) || /\bfree\b/.test(m[0])) continue;
+            const amount = parseFloat(m[1].replace(/,/g, ''));
+            if (isFinite(amount) && amount > 0) return amount;
+        }
+
+        return null;
+    }
+
+    function getDisplayedItemPrice() {
+        const selectors = [
+            '#corePrice_feature_div .a-price .a-offscreen',
+            '#corePriceDisplay_desktop_feature_div .a-price .a-offscreen',
+            '#corePrice_feature_div .a-offscreen',
+            '#apex_desktop .a-price .a-offscreen',
+            '#price_inside_buybox',
+            '#priceblock_ourprice',
+            '#priceblock_dealprice',
+            '#buybox .a-price .a-offscreen',
+            '#desktop_buybox .a-price .a-offscreen'
+        ];
+        try {
+            for (let i = 0; i < selectors.length; i++) {
+                const el = document.querySelector(selectors[i]);
+                if (!el) continue;
+                const amount = parseMoneyAmount(el.textContent || el.innerText || '');
+                if (amount !== null) return amount;
+            }
+        } catch (err) {
+            /* price probe failed — silence */
+        }
+        return null;
+    }
+
+    function getShippingCostLevel(itemPrice, shippingCost) {
+        if (!(shippingCost > SHIPPING_COST_MIN)) return 0;
+        if ((itemPrice > 0 && shippingCost > itemPrice) || shippingCost > 30) return 3;
+        if (shippingCost > 15) return 2;
+        return 1;
+    }
+
     // Merchant Identity Shield (Rule B-6, refined): parses the seller name
     // from the RAW page text (case-sensitive) and flags either signature —
     //   (a) entropy: 4+ consecutive consonants with zero vowels
@@ -529,6 +608,7 @@
         LISTING_NO_REVIEWS: 'record',
         MERCHANT_IDENTITY: 'name',
         PRICING_ANOMALY: 'price',
+        SHIPPING_COST: 'price',
         EXTENDED_SHIPPING: 'fulfillment',
         HIDDEN_CHECKOUT: 'fulfillment',
         FULFILLMENT_CLAIM_CONFLICT: 'fulfillment',
@@ -784,6 +864,7 @@
         // claims of our own. Silence on any parse failure; the banner
         // null-guards every field via evaluation.snapshot.
         const snapshot = { sellerName: null, feedbackCount: null, feedbackPct: null, asin: null };
+        let costCheck = null;
         try {
             snapshot.sellerName = extractSellerName(rawText);
         } catch (snapErrName) {
@@ -1054,6 +1135,28 @@
             reasons.push(PRICING_ANOMALY_REASON);
         }
 
+        // SHIPPING COST (2026-11-08): explicit printed shipping charge that
+        // is both at least $5 and higher than the item price. A cost fact, not
+        // a scam inference; kept soft so it lands as a low-caution disclosure.
+        try {
+            const itemPrice = getDisplayedItemPrice();
+            const shippingCost = findExplicitShippingCharge(logisticsText);
+            const costLevel = getShippingCostLevel(itemPrice, shippingCost);
+            if (costLevel > 0) {
+                costCheck = {
+                    itemPrice: itemPrice,
+                    shippingCost: shippingCost,
+                    level: costLevel
+                };
+                reasons.push(SHIPPING_COST_REASON);
+            }
+        } catch (costErr) {
+            console.warn(
+                '[ScamScanned] shipping cost parse error (intercepted):',
+                costErr && costErr.message ? costErr.message : costErr
+            );
+        }
+
         // Amazon's OWN seller-age annotation: "New to Amazon" badges and
         // "New seller" labels are printed by the platform for accounts inside
         // the first ~120-day window. Platform-printed evidence, same caution.
@@ -1155,6 +1258,7 @@
             claimedFba: routeAWaivesLogistics,
             structuralScanRan: true,
             productReviewVolume: productReviewVolume,
+            costCheck: costCheck,
             // Alpha diagnostics: what the scanner saw and where it came from.
             debug: {
                 textChars: rawText.length,
@@ -1306,6 +1410,37 @@
         return wrap;
     }
 
+    function formatMoney(value) {
+        return '$' + Number(value).toFixed(2);
+    }
+
+    function getShippingCostTitle(cost) {
+        if (!cost) return 'Cost Check — Shipping Charge';
+        const amount = formatMoney(cost.shippingCost);
+        if (cost.level >= 3) {
+            return (cost.itemPrice > 0 && cost.shippingCost > cost.itemPrice)
+                ? 'Shipping Costs More Than the Item — ' + amount
+                : 'Very High Shipping Cost — ' + amount;
+        }
+        if (cost.level === 2) return 'High Shipping Cost — ' + amount;
+        return 'Cost Check — Shipping Is ' + amount;
+    }
+
+    function getShippingCostBottomLine(cost) {
+        if (!cost) return 'Bottom line: check the shipping charge before you buy.';
+        const amount = formatMoney(cost.shippingCost);
+        if (cost.level >= 3) {
+            return 'Bottom line: shipping is ' + amount +
+                ((cost.itemPrice > 0 && cost.shippingCost > cost.itemPrice)
+                    ? ', more than the item' : '') +
+                '. Check the total before buying.';
+        }
+        if (cost.level === 2) {
+            return 'Bottom line: high shipping — ' + amount + '. Check the total carefully.';
+        }
+        return 'Bottom line: shipping is ' + amount + '. Check the total before you buy.';
+    }
+
     function injectSafetyBanner(evaluation) {
         if (!evaluation || !evaluation.isRisky) return;
 
@@ -1316,23 +1451,36 @@
         const isEnforcement = evaluation.tier === 'enforcement';
         const isYellowTier = evaluation.tier === 'yellow';
         const isExtremeTier = evaluation.tier === 'extreme';
+        const reasonCount = (evaluation.reasons || []).length;
+        const onlyCostCheck = reasonCount === 1 &&
+            evaluation.reasons[0] === SHIPPING_COST_REASON;
+        const costLevel = (onlyCostCheck && evaluation.costCheck)
+            ? evaluation.costCheck.level : 0;
+        const costColor = costLevel >= 3 ? PALETTE.extreme :
+            (costLevel === 2 ? '#F97316' : PALETTE.caution);
 
-        const tierColor = isEnforcement ? PALETTE.enforcement :
-            (isBlueTier ? PALETTE.blueAccent :
-                (isYellowTier ? PALETTE.caution :
-                    (isExtremeTier ? PALETTE.extreme : PALETTE.accent)));
+        const tierColor = onlyCostCheck ? costColor :
+            (isEnforcement ? PALETTE.enforcement :
+                (isBlueTier ? PALETTE.blueAccent :
+                    (isYellowTier ? PALETTE.caution :
+                        (isExtremeTier ? PALETTE.extreme : PALETTE.accent))));
 
         // Visual hierarchy must track severity: extreme gets a brighter red,
         // a thicker top border, a dark-red gradient, and a red glow; elevated
         // keeps the standard crimson hairline. A darker maroon read as LESS
-        // alarming than elevated in the field (2026-11-07).
-        const bannerBackground = isExtremeTier
+        // alarming than elevated in the field (2026-11-07). A cost-only banner
+        // escalates from yellow to orange ($15+) to red ($30+ / above item).
+        const bannerBackground = (isExtremeTier || costLevel >= 3)
             ? 'linear-gradient(180deg, #2A0B0B 0%, #1C1C1E 72%)'
-            : PALETTE.surface;
-        const bannerBorderWidth = isExtremeTier ? 3 : 2;
-        const bannerShadow = isExtremeTier
+            : (costLevel === 2
+                ? 'linear-gradient(180deg, #2A1A0B 0%, #1C1C1E 72%)'
+                : PALETTE.surface);
+        const bannerBorderWidth = (isExtremeTier || costLevel >= 3) ? 3 : 2;
+        const bannerShadow = (isExtremeTier || costLevel >= 3)
             ? '0 0 0 1px rgba(239,68,68,0.32) inset, 0 10px 30px rgba(239,68,68,0.26)'
-            : '0 6px 18px rgba(0,0,0,0.45)';
+            : (costLevel === 2
+                ? '0 0 0 1px rgba(249,115,22,0.28) inset, 0 10px 26px rgba(249,115,22,0.20)'
+                : '0 6px 18px rgba(0,0,0,0.45)');
 
         const banner = document.createElement('div');
         banner.id = 'scamscanned-alert-shield';
@@ -1359,10 +1507,13 @@
         // outline ELEVATED chip at a glance. Enforcement uses the same solid
         // treatment (its action is terminal).
         const severityLabel = isEnforcement ? 'DO NOT BUY' :
-            (isExtremeTier ? 'EXTREME' :
-                (isYellowTier ? 'LOW CAUTION' :
-                    (isBlueTier ? 'VERIFY' : 'ELEVATED')));
-        const solidBadge = isEnforcement || isExtremeTier;
+            (onlyCostCheck ? (costLevel >= 3 ? 'VERY HIGH SHIPPING' :
+                (costLevel === 2 ? 'HIGH SHIPPING' : 'COST CHECK')) :
+                (isExtremeTier ? 'EXTREME' :
+                    (isYellowTier ? 'LOW CAUTION' :
+                        (isBlueTier ? 'VERIFY' : 'ELEVATED'))));
+        const solidBadge = isEnforcement || isExtremeTier ||
+            (onlyCostCheck && costLevel >= 2);
         const severityBadge = document.createElement('span');
         severityBadge.textContent = severityLabel;
         severityBadge.style.cssText = [
@@ -1383,13 +1534,12 @@
         const headline = document.createElement('div');
         headline.id = 'scamscanned-alert-headline';
         headline.style.cssText =
-            'font-size: ' + (isExtremeTier ? '19px' : '18px') + ';' +
-            ' font-weight: ' + (isExtremeTier ? '700' : '600') + '; letter-spacing: 0.2px;';
+            'font-size: ' + ((isExtremeTier || costLevel >= 3) ? '19px' : '18px') + ';' +
+            ' font-weight: ' + ((isExtremeTier || costLevel >= 2) ? '700' : '600') + '; letter-spacing: 0.2px;';
         // Count-honest headline (field 2026-11-07: a single merchant-name
         // hit rendered "Multiple Caution Signals"). One signal = singular.
-        const reasonCount = (evaluation.reasons || []).length;
         headline.innerText = isEnforcement ? ENFORCEMENT_TIER_TITLE :
-            (isYellowTier ? YELLOW_TIER_TITLE :
+            (isYellowTier ? (onlyCostCheck ? getShippingCostTitle(evaluation.costCheck) : YELLOW_TIER_TITLE) :
                 (isExtremeTier ? EXTREME_TIER_TITLE :
                     (isBlueTier ? BLUE_TIER_TITLE :
                         (reasonCount > 1 ? RED_TIER_TITLE : RED_TIER_TITLE_SINGLE))));
@@ -1572,7 +1722,9 @@
         bottomLine.textContent = isEnforcement
             ? 'Bottom line: a government or court record names this seller. Pick a different offer.'
             : (isYellowTier
-                ? 'Bottom line: one soft signal with nothing stacked — this band is usually fine. The fast check below is optional.'
+                ? (onlyCostCheck && evaluation.costCheck
+                    ? getShippingCostBottomLine(evaluation.costCheck)
+                    : 'Bottom line: one soft signal with nothing stacked — this band is usually fine. The fast check below is optional.')
                 : (isExtremeTier
                     ? 'Bottom line: multiple strong signals align on this offer. Choose a different listing — the alternatives search is one click away.'
                     : (isBlueTier
@@ -1592,7 +1744,7 @@
         // "the fast check below"); red and blue keep it (both say
         // "verify").
         let verifyTip = null;
-        if (!isEnforcement && !isExtremeTier) {
+        if (!isEnforcement && !isExtremeTier && !onlyCostCheck) {
             verifyTip = document.createElement('div');
             verifyTip.id = 'scamscanned-alert-verifytip';
             verifyTip.style.cssText =
@@ -1657,6 +1809,30 @@
         if (sellerLine) {
             content.appendChild(sellerLine);
         }
+        let costLine = null;
+        if (evaluation.costCheck && !isEnforcement) {
+            const cost = evaluation.costCheck;
+            const level = cost.level || 0;
+            const costLineColor = level >= 3 ? '#FCA5A5' :
+                (level === 2 ? '#FDBA74' : 'rgba(255,255,255,0.82)');
+            costLine = document.createElement('div');
+            costLine.id = 'scamscanned-alert-costline';
+            costLine.style.cssText =
+                'font-size: 12.5px; color: ' + costLineColor + '; letter-spacing: 0.1px;' +
+                ' font-weight: ' + (level >= 2 ? '600' : '400') + '; line-height: 1.5;';
+            let costText = 'Cost check: ';
+            if (cost.itemPrice > 0) {
+                costText += 'item ' + formatMoney(cost.itemPrice) + ' + ';
+            }
+            costText += 'shipping ' + formatMoney(cost.shippingCost) + '.';
+            if (cost.itemPrice > 0 && cost.shippingCost > cost.itemPrice) {
+                costText += ' Shipping is more than the item.';
+            } else if (level >= 2) {
+                costText += ' High shipping charge.';
+            }
+            costLine.textContent = costText;
+            content.appendChild(costLine);
+        }
         if (signalMeter) {
             content.appendChild(signalMeter);
         }
@@ -1718,6 +1894,10 @@
                 'deal': true, 'deals': true
             };
             return t.toLowerCase()
+                // Split digit/letter runs so "1:64Collectible" becomes
+                // "1 64 Collectible" (bare digits then drop), not one token.
+                // Require 3+ letters so units like "65W" and "4K" stay intact.
+                .replace(/([0-9])([a-z]{3,})/g, '$1 $2')
                 .replace(/[^a-z0-9\s\-]/g, ' ')
                 .split(/\s+/)
                 .filter(function (tok) {

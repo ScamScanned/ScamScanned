@@ -3,6 +3,12 @@
 All notable user-facing changes to the ScamScanned browser extension are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.3] — 2026-11-08
+
+### Added
+- Shipping-cost check: on Amazon, when the page prints an explicit shipping charge that is over $5, escalating at $15 and again at $30 or above the item price, the banner shows a cost disclosure with both amounts; the warning escalates from yellow to orange to red as the charge rises. It is a cost fact, not a scam verdict, and it stays silent on "free delivery over $35" or "shipping calculated at checkout."
+- The alternative-search builder now splits digit/letter runs, so a title like "1:64Collectible" no longer becomes the token `64collectible`; the bare `64` is dropped and `collectible` is kept.
+
 ## [0.2.2] — 2026-11-07
 
 ### Changed

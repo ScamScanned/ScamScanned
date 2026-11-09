@@ -8,7 +8,7 @@ It reads the page you are already viewing and shows a warning banner when a list
 
 Full walkthrough with troubleshooting: [INSTALL.md](INSTALL.md).
 
-1. Download `scamscanned-alpha-v0.2.2.zip` from [scamscanned.com](https://scamscanned.com/download/scamscanned-alpha-v0.2.2.zip).
+1. Download `scamscanned-alpha-v0.2.3.zip` from [scamscanned.com](https://scamscanned.com/download/scamscanned-alpha-v0.2.3.zip).
 2. Right-click → **Extract All…**
 3. Open `chrome://extensions`, switch on **Developer mode**.
 4. Click **Load unpacked** and select the extracted folder, then pin the shield.
@@ -16,6 +16,7 @@ Full walkthrough with troubleshooting: [INSTALL.md](INSTALL.md).
 ## What it detects
 
 - **Extended shipping horizons** — delivery estimates that run past normal marketplace timing ("4-6 weeks", calendar dates 2+ weeks out, cross-year rollover).
+- **Shipping-cost check** — a printed shipping charge over $5, shown as an escalating cost disclosure rather than a scam verdict.
 - **Seller-name shape signals** — 4+ consonant runs or all-caps storefront names; a weak signal, not proof.
 - **Off-platform checkout exits** — a listing with no standard buy box, or one that points to the seller's own web address.
 - **Pricing anomalies** — markdowns at or beyond 70% off the reference price.

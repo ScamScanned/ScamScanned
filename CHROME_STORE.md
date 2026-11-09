@@ -1,7 +1,7 @@
 # Chrome Web Store Submission Pack
 
 Status: agent-side preparation complete; account, fee, screenshots, and final submit are user-side.
-Build: `scamscanned-alpha-v0.2.2.zip` (12 entries, 60,215 B, SHA256 `EA2151C0EB179D34EAE09186836D5B0EF15B3C2A2B6B522206A41EA3DB0DAB12`).
+Build: `scamscanned-alpha-v0.2.3.zip` (12 entries, 62,478 B, SHA256 `5CDEC44921F8AA97316F66390234CB0A32AB5D2961E3FEBEAB4B42588B269FC1`).
 
 - Homepage: https://scamscanned.com/
 - Privacy policy: https://scamscanned.com/privacy.html
@@ -15,14 +15,14 @@ Build: `scamscanned-alpha-v0.2.2.zip` (12 entries, 60,215 B, SHA256 `EA2151C0EB1
 1. Sign in to the Google account that will own the listing.
 2. Pay the one-time **$5 developer registration fee** at https://chrome.google.com/webstore/devconsole.
 3. Complete any identity/contact verification Google requests.
-4. Upload `download/scamscanned-alpha-v0.2.2.zip`.
+4. Upload `download/scamscanned-alpha-v0.2.3.zip`.
 5. Paste the listing copy from section 2.
 6. Fill the Privacy practices tab from section 3.
 7. Upload screenshots from section 5.
 8. Add the reviewer note from section 4.
 9. Submit for review. Typical first review: 1-3 business days.
 
-Do not upload the live-site copy of v0.2.1: it is an older 53,276 B build. The canonical submission is v0.2.2.
+Do not upload an older live-site copy: v0.2.1 was a 53,276 B build and v0.2.2 is superseded. The canonical submission is **v0.2.3**.
 
 ---
 
@@ -46,6 +46,7 @@ ScamScanned reads the marketplace page you are already viewing and shows a warni
 WHAT IT CHECKS
 - Seller history printed in the buy box: low feedback counts, weak positive-rating share, "new seller" badges.
 - Delivery promises that outlast normal marketplace windows.
+- A printed shipping charge over $5, shown as an escalating cost check rather than a scam finding.
 - Contradictions such as "Fulfilled by Amazon" printed next to a weeks-long delivery estimate.
 - Missing standard checkout, deep price markdowns, and mass-generated listing text.
 - The marketplace's own frequently-returned flag, when present.

@@ -71,10 +71,10 @@ function buildPivotQuery($title, $sellerName) {
         $t
     );
     // Split digit/letter runs before tokenization: "1:64Collectible" is
-    // "1:64 Collectible", not one token "64collectible". The scale digits are
-    // dropped by the pure-digit filter; the descriptive word survives.
-    $t = preg_replace('/([0-9])([a-z])/i', '$1 $2', $t);
-    $t = preg_replace('/([a-z])([0-9])/i', '$1 $2', $t);
+    // "1:64 Collectible", not one token "64collectible". Require 3+ letters
+    // so units like "65W" and "4K" stay intact; the scale digits are dropped
+    // by the pure-digit filter and the descriptive word survives.
+    $t = preg_replace('/([0-9])([a-z]{3,})/i', '$1 $2', $t);
     $noise = [
         'with' => 1, 'and' => 1, 'for' => 1, 'the' => 1, 'a' => 1,
         'of' => 1, 'set' => 1, 'pack' => 1, 'bundle' => 1,
