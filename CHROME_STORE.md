@@ -1,7 +1,7 @@
 # Chrome Web Store Submission Pack
 
 Status: agent-side preparation complete; account, fee, screenshots, and final submit are user-side.
-Build: `scamscanned-alpha-v0.2.4.zip` (12 entries, 62,808 B, SHA256 `6EC477E368C8DDC68919BA8B6760E51DDA50F35B994D39B3A4772BD68F930842`).
+Build: `scamscanned-alpha-v0.2.5.zip` (12 entries, 63,245 B, SHA256 `FDA7AC937A1431041BB43E6DA206B85F4A8576CA9577958B370A15EC1CCB894F`).
 
 - Homepage: https://scamscanned.com/
 - Privacy policy: https://scamscanned.com/privacy.html
@@ -15,14 +15,14 @@ Build: `scamscanned-alpha-v0.2.4.zip` (12 entries, 62,808 B, SHA256 `6EC477E368C
 1. Sign in to the Google account that will own the listing.
 2. Pay the one-time **$5 developer registration fee** at https://chrome.google.com/webstore/devconsole.
 3. Complete any identity/contact verification Google requests.
-4. Upload `download/scamscanned-alpha-v0.2.4.zip`.
+4. Upload `download/scamscanned-alpha-v0.2.5.zip`.
 5. Paste the listing copy from section 2.
 6. Fill the Privacy practices tab from section 3.
 7. Upload screenshots from section 5.
 8. Add the reviewer note from section 4.
 9. Submit for review. Typical first review: 1-3 business days.
 
-Do not upload an older live-site copy: v0.2.1 was a 53,276 B build and v0.2.2 is superseded. The canonical submission is **v0.2.4**.
+Do not upload an older live-site copy: v0.2.1 was a 53,276 B build and v0.2.2 is superseded. The canonical submission is **v0.2.5**.
 
 ---
 

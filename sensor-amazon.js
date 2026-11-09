@@ -366,6 +366,39 @@
         return pageText.slice(Math.max(0, anchor.index - 100), anchor.index + 600);
     }
 
+    // MAIN-OFFER PRICE SCOPE (2026-11-08 field fix): markdown parsing must use
+    // the offer's own price block, not the first "$10" anywhere on the page.
+    // The Birkenstock specimen carried a stray $10 elsewhere; the full-page
+    // parser paired it with a $29.90 list price and invented a deep markdown.
+    function getMainOfferPriceText(pageText) {
+        const selectors = [
+            '#corePrice_feature_div',
+            '#corePriceDisplay_desktop_feature_div',
+            '#buybox',
+            '#desktop_buybox'
+        ];
+        const chunks = [];
+        try {
+            selectors.forEach(function (sel) {
+                const nodes = document.querySelectorAll(sel);
+                for (let i = 0; i < nodes.length; i++) {
+                    let chunk = '';
+                    try { chunk = nodes[i].innerText || ''; } catch (e1) { chunk = ''; }
+                    if (!chunk) {
+                        try { chunk = nodes[i].textContent || ''; } catch (e2) { chunk = ''; }
+                    }
+                    chunk = normalizePageText(chunk);
+                    if (chunk) chunks.push(chunk);
+                }
+            });
+        } catch (err) {
+            /* DOM probe failed — bounded text fallback */
+        }
+        const scope = chunks.join(' ').replace(/\s+/g, ' ').trim();
+        if (scope.length >= 10) return scope;
+        return String(pageText || '').slice(0, 2500);
+    }
+
     // SHIPPING-COST DISCLOSURE (2026-11-08): a printed shipping charge is a
     // cost fact, not a scam signal. Warn on any explicit charge over $5;
     // escalate the cost warning at $15 and again at $30 / above item price.
@@ -467,14 +500,29 @@
     // already collected) fires above 50% off and deliberately overrides the
     // FBA veto — the 2026-11-07 sleeper-FBA class prints a healthy logistics
     // window while undercutting the market on an unwarranted listing.
-    function hasDeceptiveMarkdown(pageText, stacked) {
+    function hasDeceptiveMarkdown(pageText, stacked, secureLogistics) {
         if (!pageText) return false; // bail cleanly on null/undefined text
-        if (!stacked && hasSecureLogistics(pageText)) return false;
+        const hasSecure = (typeof secureLogistics === 'boolean')
+            ? secureLogistics
+            : hasSecureLogistics(pageText);
+        if (!stacked && hasSecure) return false;
 
         const listMatch = pageText.match(
             /(?:list price|typical price|was)\s*[:\-]?\s*\$?\s?(\d[\d,]*(?:\.\d{1,2})?)/i
         );
-        const currentMatch = pageText.match(/\$\s?(\d[\d,]*(?:\.\d{1,2})?)/);
+        const currentRe = /\$\s?(\d[\d,]*(?:\.\d{1,2})?)/g;
+        let currentMatch = null;
+        let cm;
+        while ((cm = currentRe.exec(pageText)) !== null) {
+            // The reference price is often printed with a "$" too; never use
+            // the reference amount as the current price.
+            if (listMatch && cm.index >= listMatch.index &&
+                cm.index < listMatch.index + listMatch[0].length) {
+                continue;
+            }
+            currentMatch = cm;
+            break;
+        }
         if (!listMatch || !currentMatch) return false;
 
         const listPrice = parseFloat(listMatch[1].replace(/,/g, ''));
@@ -981,6 +1029,7 @@
         // page is a printed CONTRADICTION (A-escalator): stronger evidence
         // than the horizon alone, never erased.
         const logisticsText = getMainOfferLogisticsText(pageText);
+        const priceText = getMainOfferPriceText(pageText);
         const shippingChecks = [
             {
                 id: 'overseas',
@@ -1148,7 +1197,7 @@
         }
 
         // B-7: Price Urgency Trap (standalone band: 70%+ markdown)
-        if (safeEvaluate(function () { return hasDeceptiveMarkdown(pageText, false); })) {
+        if (safeEvaluate(function () { return hasDeceptiveMarkdown(priceText, false, routeAWaivesLogistics); })) {
             reasons.push(PRICING_ANOMALY_REASON);
         }
 
@@ -1195,7 +1244,7 @@
             reasons.push(ZERO_REVIEW_REASON);
         }
         if (reasons.length > 0 &&
-            safeEvaluate(function () { return hasDeceptiveMarkdown(pageText, true); })) {
+            safeEvaluate(function () { return hasDeceptiveMarkdown(priceText, true, routeAWaivesLogistics); })) {
             reasons.push(PRICING_ANOMALY_REASON); // dedupe collapses double-push
         }
 
@@ -1243,7 +1292,7 @@
                 // Standalone deep band (70%+) is strong; the stacked mid
                 // band was a corroborator by design.
                 return safeEvaluate(function () {
-                    return hasDeceptiveMarkdown(pageText, false);
+                    return hasDeceptiveMarkdown(priceText, false, routeAWaivesLogistics);
                 });
             }
             return false;

@@ -3,6 +3,11 @@
 All notable user-facing changes to the ScamScanned browser extension are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.5] — 2026-11-08
+
+### Fixed
+- Pricing checks now read the main offer's price block instead of the first dollar amount anywhere on the page. A legitimate 13% discount (Birkenstock field case: $25.95 vs $29.90) no longer becomes a "deep markdown" because of a stray `$10` elsewhere on the page. The current price is taken from the price block and the reference amount is excluded from the current-price match.
+
 ## [0.2.4] — 2026-11-08
 
 ### Fixed
