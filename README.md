@@ -40,6 +40,7 @@ Amazon carries the deepest rule set (listing checks plus seller-profile inspecti
 - [FIELD_TEST_PROTOCOL.md](FIELD_TEST_PROTOCOL.md) — exact steps and template for sending field specimens and logs.
 - [CHROME_STORE.md](CHROME_STORE.md) — Chrome Web Store listing copy, privacy answers, and submission checklist.
 - [EMAIL_GUARD_PLAN.md](EMAIL_GUARD_PLAN.md) — architecture for Spectrum Webmail and Outlook phishing protection.
+- [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) — what to update on GitHub, the website, the store, and the API.
 - [api/index.php](api/index.php) — relay endpoint and alternative-search link builder.
 - [privacy.html](privacy.html) — the privacy policy, mirrored for source-level auditability.
 - [recover.html](recover.html) — the refund-recovery guide, mirrored for source-level auditability.
