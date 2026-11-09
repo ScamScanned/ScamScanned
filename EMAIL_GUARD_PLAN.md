@@ -1,6 +1,10 @@
 # ScamScanned Mail — Architecture Plan
 
-Status: design only, not implemented.
+Status: **PARKED (2026-11-08)**. Design only, not scheduled, not implemented.
+
+Decision: this is a mission/trust feature, not a revenue feature. The current focus stays on the marketplace extension and the Chrome Web Store launch. Revisit after the store release is stable and the marketplace product has a working feedback loop.
+
+Cheap interim option if the goal is helping people like the user's parents before building a mail product: a short public guide on spotting "storage expired" phishing, enabling passkeys/2FA, checking mail filters/forwarding, and reporting phishing. That needs no mail permissions and no add-in maintenance.
 
 Goal: warn about phishing in **Spectrum Webmail** and the **Outlook app** without harvesting email content, auto-deleting messages, or silently clicking links.
 
