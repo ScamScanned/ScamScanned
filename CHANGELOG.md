@@ -8,6 +8,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Pricing checks now read the main offer's price block instead of the first dollar amount anywhere on the page. A legitimate 13% discount (Birkenstock field case: $25.95 vs $29.90) no longer becomes a "deep markdown" because of a stray `$10` elsewhere on the page. The current price is taken from the price block and the reference amount is excluded from the current-price match.
 
+### Changed
+- A lone extended-shipping warning is now duration-based: **14–27 days is yellow** ("Delivery Caution"), **28+ days is red** ("Long Shipping"). The banner names the day count and says it is a logistics caution, not a seller verdict. Unknown horizons stay yellow.
+
 ## [0.2.4] — 2026-11-08
 
 ### Fixed

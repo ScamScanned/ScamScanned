@@ -14,6 +14,7 @@
     const AFFILIATE_TAG = 'scamscanned-20';
     const MIN_RISK_DAYS = 14;
     const MIN_RISK_WEEKS = 2;
+    const SHIPPING_STRONG_DAYS = 28;
     const PRICE_MARKDOWN_THRESHOLD = 0.70;
     // Stacked-corroboration band (Field wave 2026-11-07): once another risk
     // rule has already collected, 50%+ markdowns also read as evidence —
@@ -471,6 +472,26 @@
         if ((itemPrice > 0 && shippingCost > itemPrice) || shippingCost > 30) return 3;
         if (shippingCost > 15) return 2;
         return 1;
+    }
+
+    function parseShippingEvidenceDays(evidence) {
+        const text = String(evidence || '');
+        let m = text.match(/~(\d+) days out/);
+        if (m) return parseInt(m[1], 10);
+        m = text.match(/upper bound (\d+) days/);
+        if (m) return parseInt(m[1], 10);
+        m = text.match(/upper bound (\d+) weeks/);
+        if (m) return parseInt(m[1], 10) * 7;
+        return null;
+    }
+
+    function getShippingBottomLine(days, strong) {
+        if (typeof days === 'number') {
+            return strong
+                ? 'Bottom line: delivery is about ' + days + ' days out. That is long enough to outlast some protection windows; choose a faster offer if you need it soon.'
+                : 'Bottom line: delivery is about ' + days + ' days out. This is a logistics caution, not a seller verdict.';
+        }
+        return 'Bottom line: the delivery window is longer than normal. Check the estimate before buying.';
     }
 
     // Merchant Identity Shield (Rule B-6, refined): parses the seller name
@@ -1099,6 +1120,7 @@
         let anyLongHorizonTriggered = false;
         let shippingTrigger = null;
         let shippingEvidence = null;
+        let shippingDays = null;
         for (let sci = 0; sci < shippingChecks.length; sci++) {
             try {
                 const evidence = shippingChecks[sci].run();
@@ -1113,6 +1135,7 @@
             }
         }
         if (anyLongHorizonTriggered) {
+            shippingDays = parseShippingEvidenceDays(shippingEvidence);
             if (routeAWaivesLogistics) {
                 reasons.push(FULFILLMENT_CONFLICT_REASON);
             } else {
@@ -1266,7 +1289,13 @@
         //   everything else (2+)       -> red (elevated)
         const uniqueReasons = Array.from(new Set(reasons));
         const isStrongReason = function (reasonKey) {
-            if (reasonKey === SHIPPING_REASON || reasonKey === DEFECT_HISTORY_REASON) {
+            if (reasonKey === SHIPPING_REASON) {
+                // Shipping-only severity depends on the printed horizon:
+                // 14-27 days is a yellow delivery caution; 28+ days is red.
+                return typeof shippingDays === 'number' &&
+                    shippingDays >= SHIPPING_STRONG_DAYS;
+            }
+            if (reasonKey === DEFECT_HISTORY_REASON) {
                 return true;
             }
             if (reasonKey === FULFILLMENT_CONFLICT_REASON) {
@@ -1325,6 +1354,7 @@
             structuralScanRan: true,
             productReviewVolume: productReviewVolume,
             costCheck: costCheck,
+            shippingDays: shippingDays,
             // Alpha diagnostics: what the scanner saw and where it came from.
             debug: {
                 textChars: rawText.length,
@@ -1336,6 +1366,7 @@
                 logisticsExcerpt: logisticsText.slice(0, 220),
                 shippingTrigger: shippingTrigger,
                 shippingEvidence: shippingEvidence,
+                shippingDays: shippingDays,
                 seller: snapshot ? snapshot.sellerName : null,
                 asinFound: snapshot ? !!snapshot.asin : false
             }
@@ -1522,6 +1553,12 @@
             evaluation.reasons[0] === SHIPPING_COST_REASON;
         const costLevel = (onlyCostCheck && evaluation.costCheck)
             ? evaluation.costCheck.level : 0;
+        const onlyShipping = reasonCount === 1 &&
+            evaluation.reasons[0] === SHIPPING_REASON;
+        const shippingDays = evaluation.shippingDays;
+        const shippingTitle = (typeof shippingDays === 'number')
+            ? shippingDays + '-Day Delivery Window'
+            : 'Extended Delivery Window';
         const costColor = costLevel >= 3 ? PALETTE.extreme :
             (costLevel === 2 ? '#F97316' : PALETTE.caution);
 
@@ -1575,11 +1612,13 @@
         const severityLabel = isEnforcement ? 'DO NOT BUY' :
             (onlyCostCheck ? (costLevel >= 3 ? 'VERY HIGH SHIPPING' :
                 (costLevel === 2 ? 'HIGH SHIPPING' : 'COST CHECK')) :
-                (isExtremeTier ? 'EXTREME' :
-                    (isYellowTier ? 'LOW CAUTION' :
-                        (isBlueTier ? 'VERIFY' : 'ELEVATED'))));
+                (onlyShipping ? (isYellowTier ? 'DELIVERY CAUTION' : 'LONG SHIPPING') :
+                    (isExtremeTier ? 'EXTREME' :
+                        (isYellowTier ? 'LOW CAUTION' :
+                            (isBlueTier ? 'VERIFY' : 'ELEVATED')))));
         const solidBadge = isEnforcement || isExtremeTier ||
-            (onlyCostCheck && costLevel >= 2);
+            (onlyCostCheck && costLevel >= 2) ||
+            (onlyShipping && !isYellowTier);
         const severityBadge = document.createElement('span');
         severityBadge.textContent = severityLabel;
         severityBadge.style.cssText = [
@@ -1605,10 +1644,12 @@
         // Count-honest headline (field 2026-11-07: a single merchant-name
         // hit rendered "Multiple Caution Signals"). One signal = singular.
         headline.innerText = isEnforcement ? ENFORCEMENT_TIER_TITLE :
-            (isYellowTier ? (onlyCostCheck ? getShippingCostTitle(evaluation.costCheck) : YELLOW_TIER_TITLE) :
+            (isYellowTier ? (onlyCostCheck ? getShippingCostTitle(evaluation.costCheck) :
+                (onlyShipping ? 'Delivery Caution — ' + shippingTitle : YELLOW_TIER_TITLE)) :
                 (isExtremeTier ? EXTREME_TIER_TITLE :
                     (isBlueTier ? BLUE_TIER_TITLE :
-                        (reasonCount > 1 ? RED_TIER_TITLE : RED_TIER_TITLE_SINGLE))));
+                        (onlyShipping ? 'Long Delivery Window — ' + shippingTitle :
+                            (reasonCount > 1 ? RED_TIER_TITLE : RED_TIER_TITLE_SINGLE)))));
 
         const headlineRow = document.createElement('div');
         headlineRow.style.cssText =
@@ -1790,14 +1831,18 @@
             : (isYellowTier
                 ? (onlyCostCheck && evaluation.costCheck
                     ? getShippingCostBottomLine(evaluation.costCheck)
-                    : 'Bottom line: one soft signal with nothing stacked — this band is usually fine. The fast check below is optional.')
+                    : (onlyShipping
+                        ? getShippingBottomLine(shippingDays, false)
+                        : 'Bottom line: one soft signal with nothing stacked — this band is usually fine. The fast check below is optional.'))
                 : (isExtremeTier
                     ? 'Bottom line: multiple strong signals align on this offer. Choose a different listing — the alternatives search is one click away.'
                     : (isBlueTier
                         ? 'Bottom line: nothing decisive found. The seller is new, so a 10-second record glance is worth it.'
-                        : ((evaluation.reasons || []).length > 1
-                            ? 'Bottom line: this offer stacks caution signals. Verify the seller or choose a different listing.'
-                            : 'Bottom line: one caution signal on this offer. Verify the seller or choose a different listing.'))));
+                        : (onlyShipping
+                            ? getShippingBottomLine(shippingDays, true)
+                            : ((evaluation.reasons || []).length > 1
+                                ? 'Bottom line: this offer stacks caution signals. Verify the seller or choose a different listing.'
+                                : 'Bottom line: one caution signal on this offer. Verify the seller or choose a different listing.')))));
 
         // VERIFY TIP (user direction, 2026-11-07): the bottom line says
         // "verify" — this tells shoppers WHAT the fast verification is.
@@ -1810,7 +1855,7 @@
         // "the fast check below"); red and blue keep it (both say
         // "verify").
         let verifyTip = null;
-        if (!isEnforcement && !isExtremeTier && !onlyCostCheck) {
+        if (!isEnforcement && !isExtremeTier && !onlyCostCheck && !onlyShipping) {
             verifyTip = document.createElement('div');
             verifyTip.id = 'scamscanned-alert-verifytip';
             verifyTip.style.cssText =
@@ -2179,6 +2224,7 @@
                 ' excerpt="' + (d.excerpt || '') + '"' +
                 ' logisticsChars=' + (d.logisticsChars || 0) +
                 ' shipping=' + (d.shippingTrigger || '-') +
+                ' shippingDays=' + (d.shippingDays === null ? '-' : d.shippingDays) +
                 ' shippingEvidence="' + (d.shippingEvidence || '') + '"' +
                 ' logistics="' + (d.logisticsExcerpt || '') + '"'
             );
